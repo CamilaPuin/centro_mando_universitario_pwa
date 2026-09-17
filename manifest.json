@@ -1,0 +1,15 @@
+{
+  "short_name": "U Control",
+  "name": "U Control",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#ffffff",
+  "theme_color": "#0984e3",
+  "display": "standalone"
+}
