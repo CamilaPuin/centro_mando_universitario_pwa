@@ -1,13 +1,13 @@
 :root {
-  --bg-main: #f8fafc;
-  --text-main: #1e293b;
-  --card-bg: #ffffff;
-  --border-color: #e2e8f0;
-  --online-bg: #dcfce7;
-  --online-text: #166534;
-  --offline-bg: #fee2e2;
-  --offline-text: #991b1b;
-  --text-muted: #64748b;
+  --bg-main: #F1F5F9;
+  --text-main: #0F172A;
+  --card-bg: #FFFFFF;
+  --border-color: #9FDEFF;
+  --online-bg: #A7F3D0;
+  --online-text: #0F172A;
+  --offline-bg: #9FDEFF;
+  --offline-text: #0F172A;
+  --text-muted: rgba(15, 23, 42, 0.65);
 }
 
 body {
@@ -16,7 +16,8 @@ body {
   padding: 20px;
   min-height: 100vh;
   box-sizing: border-box;
-  background-color: var(--text-main);
+  background-color: var(--bg-main);
+  color: var(--text-main);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -28,7 +29,8 @@ body {
   background: var(--card-bg);
   padding: 24px;
   border-radius: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.08);
 }
 
 .status-group {
@@ -37,7 +39,7 @@ body {
 
 .badge {
   display: inline-block;
-  padding: 4px 12px;
+  padding: 6px 14px;
   border-radius: 9999px;
   font-size: 0.875rem;
   font-weight: 600;
@@ -55,7 +57,7 @@ body {
 
 .divider {
   border: 0;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid var(--bg-main);
   margin: 20px 0;
 }
 
