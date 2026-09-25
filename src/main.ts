@@ -6,12 +6,12 @@ if ('serviceWorker' in navigator) {
 }
 /// <reference types="vite/client" />
 
+import './style.css';
+
 declare module '*.css';
 const appContainer = document.querySelector<HTMLDivElement>('#app')!;
 
 function renderApp() {
-  const isOnline = navigator.onLine;
-
   appContainer.innerHTML = `
     <div class="card">
       <h1>Centro de Mando Universitario</h1>
