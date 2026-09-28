@@ -1,53 +1,32 @@
-const CACHE_NAME = 'centro-mando-v1';
-const ASSETS_TO_CACHE = [
+const CURRENT_CACHE = 'centro-mando-v1';
+const CORE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/src/main.js',
+  '/src/main.ts',
   '/src/style.css'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+    caches.open(CURRENT_CACHE).then((cache) => cache.addAll(CORE_ASSETS))
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+    caches.keys()
+      .then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((cacheName) => cacheName !== CURRENT_CACHE)
+            .map((cacheName) => caches.delete(cacheName))
+        )
       )
-    )
+      .then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-
-      return fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(async () => {
-          const cache = await caches.open(CACHE_NAME);
-          return (await cache.match('/index.html')) || (await cache.match('/'));
-        });
-    })
-  );
+  event.respondWith(fetch(event.request));
 });
