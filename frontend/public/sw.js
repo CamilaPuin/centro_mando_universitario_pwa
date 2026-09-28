@@ -7,49 +7,49 @@ const CORE_ASSETS = [
   '/src/style.css'
 ];
 
-function cacheOnly(peticion) {
-  return caches.match(peticion);
+function cacheOnly(request) {
+  return caches.match(request);
 }
 
-function networkOnly(peticion) {
-  return fetch(peticion);
+function networkOnly(request) {
+  return fetch(request);
 }
 
-function cacheFirst(peticion) {
-  return caches.match(peticion).then((enCache) => {
-    if (enCache) return enCache;
-    return fetch(peticion).then((respuesta) => {
-      if (respuesta.ok) {
-        const clon = respuesta.clone();
-        caches.open(CURRENT_CACHE).then((cache) => cache.put(peticion, clon));
+function cacheFirst(request) {
+  return caches.match(request).then((inCache) => {
+    if (inCache) return inCache;
+    return fetch(request).then((response) => {
+      if (response.ok) {
+        const clone = response.clone();
+        caches.open(CURRENT_CACHE).then((cache) => cache.put(request, clone));
       }
-      return respuesta;
+      return response;
     });
   });
 }
 
-function networkFirst(peticion) {
-  return fetch(peticion)
-    .then((respuesta) => {
-      if (respuesta.ok) {
-        const clon = respuesta.clone();
-        caches.open(CURRENT_CACHE).then((cache) => cache.put(peticion, clon));
+function networkFirst(request) {
+  return fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        const clone = response.clone();
+        caches.open(CURRENT_CACHE).then((cache) => cache.put(request, clone));
       }
-      return respuesta;
+      return response;
     })
-    .catch(() => caches.match(peticion));
+    .catch(() => caches.match(request));
 }
 
-function staleWhileRevalidate(peticion) {
-  return caches.match(peticion).then((enCache) => {
-    const promesaRed = fetch(peticion).then((respuesta) => {
-      if (respuesta.ok) {
-        const clon = respuesta.clone();
-        caches.open(CURRENT_CACHE).then((cache) => cache.put(peticion, clon));
+function staleWhileRevalidate(request) {
+  return caches.match(request).then((inCache) => {
+    const fetchPromise = fetch(request).then((response) => {
+      if (response.ok) {
+        const clone = response.clone();
+        caches.open(CURRENT_CACHE).then((cache) => cache.put(request, clone));
       }
-      return respuesta;
+      return response;
     });
-    return enCache || promesaRed;
+    return inCache || fetchPromise;
   });
 }
 
