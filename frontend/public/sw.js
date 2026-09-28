@@ -7,6 +7,25 @@ const CORE_ASSETS = [
   '/src/style.css'
 ];
 
+function cacheOnly(peticion) {
+  return caches.match(peticion);
+}
+
+function networkOnly(peticion) {
+  return fetch(peticion);
+}
+
+function cacheFirst(peticion) {
+  return caches.match(peticion).then((enCache) => {
+    if (enCache) return enCache;
+    return fetch(peticion).then((respuesta) => {
+      const clon = respuesta.clone();
+      caches.open(CURRENT_CACHE).then((cache) => cache.put(peticion, clon));
+      return respuesta;
+    });
+  });
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CURRENT_CACHE).then((cache) => cache.addAll(CORE_ASSETS))
@@ -28,5 +47,15 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  event.respondWith(fetch(event.request));
+  const url = new URL(event.request.url);
+
+  if (event.request.method !== 'GET') return;
+
+  if (url.pathname.includes('/manifest.json')) {
+    event.respondWith(cacheOnly(event.request));
+  } else if (url.pathname.startsWith('/api/')) {
+    event.respondWith(networkOnly(event.request));
+  } else {
+    event.respondWith(cacheFirst(event.request));
+  }
 });
