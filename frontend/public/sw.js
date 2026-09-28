@@ -19,10 +19,37 @@ function cacheFirst(peticion) {
   return caches.match(peticion).then((enCache) => {
     if (enCache) return enCache;
     return fetch(peticion).then((respuesta) => {
-      const clon = respuesta.clone();
-      caches.open(CURRENT_CACHE).then((cache) => cache.put(peticion, clon));
+      if (respuesta.ok) {
+        const clon = respuesta.clone();
+        caches.open(CURRENT_CACHE).then((cache) => cache.put(peticion, clon));
+      }
       return respuesta;
     });
+  });
+}
+
+function networkFirst(peticion) {
+  return fetch(peticion)
+    .then((respuesta) => {
+      if (respuesta.ok) {
+        const clon = respuesta.clone();
+        caches.open(CURRENT_CACHE).then((cache) => cache.put(peticion, clon));
+      }
+      return respuesta;
+    })
+    .catch(() => caches.match(peticion));
+}
+
+function staleWhileRevalidate(peticion) {
+  return caches.match(peticion).then((enCache) => {
+    const promesaRed = fetch(peticion).then((respuesta) => {
+      if (respuesta.ok) {
+        const clon = respuesta.clone();
+        caches.open(CURRENT_CACHE).then((cache) => cache.put(peticion, clon));
+      }
+      return respuesta;
+    });
+    return enCache || promesaRed;
   });
 }
 
@@ -55,6 +82,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(cacheOnly(event.request));
   } else if (url.pathname.startsWith('/api/')) {
     event.respondWith(networkOnly(event.request));
+  } else if (event.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
+    event.respondWith(networkFirst(event.request));
+  } else if (url.pathname.endsWith('.css') || url.pathname.endsWith('.ts') || url.pathname.endsWith('.js')) {
+    event.respondWith(staleWhileRevalidate(event.request));
   } else {
     event.respondWith(cacheFirst(event.request));
   }
