@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'centro-mando-v1';
+const CURRENT_CACHE = 'centro-mando-v2';
 const CORE_ASSETS = [
   '/',
   '/index.html',
@@ -7,22 +7,49 @@ const CORE_ASSETS = [
   '/src/style.css'
 ];
 
-function cacheOnly(peticion) {
-  return caches.match(peticion);
+function cacheOnly(request) {
+  return caches.match(request);
 }
 
-function networkOnly(peticion) {
-  return fetch(peticion);
+function networkOnly(request) {
+  return fetch(request);
 }
 
-function cacheFirst(peticion) {
-  return caches.match(peticion).then((enCache) => {
-    if (enCache) return enCache;
-    return fetch(peticion).then((respuesta) => {
-      const clon = respuesta.clone();
-      caches.open(CURRENT_CACHE).then((cache) => cache.put(peticion, clon));
-      return respuesta;
+function cacheFirst(request) {
+  return caches.match(request).then((inCache) => {
+    if (inCache) return inCache;
+    return fetch(request).then((response) => {
+      if (response.ok) {
+        const clone = response.clone();
+        caches.open(CURRENT_CACHE).then((cache) => cache.put(request, clone));
+      }
+      return response;
     });
+  });
+}
+
+function networkFirst(request) {
+  return fetch(request)
+    .then((response) => {
+      if (response.ok) {
+        const clone = response.clone();
+        caches.open(CURRENT_CACHE).then((cache) => cache.put(request, clone));
+      }
+      return response;
+    })
+    .catch(() => caches.match(request));
+}
+
+function staleWhileRevalidate(request) {
+  return caches.match(request).then((inCache) => {
+    const fetchPromise = fetch(request).then((response) => {
+      if (response.ok) {
+        const clone = response.clone();
+        caches.open(CURRENT_CACHE).then((cache) => cache.put(request, clone));
+      }
+      return response;
+    });
+    return inCache || fetchPromise;
   });
 }
 
@@ -55,6 +82,10 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(cacheOnly(event.request));
   } else if (url.pathname.startsWith('/api/')) {
     event.respondWith(networkOnly(event.request));
+  } else if (event.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
+    event.respondWith(networkFirst(event.request));
+  } else if (url.pathname.endsWith('.css') || url.pathname.endsWith('.ts') || url.pathname.endsWith('.js')) {
+    event.respondWith(staleWhileRevalidate(event.request));
   } else {
     event.respondWith(cacheFirst(event.request));
   }
