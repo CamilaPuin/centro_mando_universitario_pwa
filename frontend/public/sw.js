@@ -1,4 +1,4 @@
-const CURRENT_CACHE = 'centro-mando-v1';
+const CURRENT_CACHE = 'centro-mando-v2';
 const CORE_ASSETS = [
   '/',
   '/index.html',
