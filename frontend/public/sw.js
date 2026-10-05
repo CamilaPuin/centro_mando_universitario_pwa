@@ -3,17 +3,11 @@ const CORE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
   '/src/main.ts',
   '/src/style.css'
 ];
-
-function cacheOnly(request) {
-  return caches.match(request);
-}
-
-function networkOnly(request) {
-  return fetch(request);
-}
 
 function cacheFirst(request) {
   return caches.match(request).then((inCache) => {
@@ -42,20 +36,25 @@ function networkFirst(request) {
 
 function staleWhileRevalidate(request) {
   return caches.match(request).then((inCache) => {
-    const fetchPromise = fetch(request).then((response) => {
-      if (response.ok) {
-        const clone = response.clone();
-        caches.open(CURRENT_CACHE).then((cache) => cache.put(request, clone));
-      }
-      return response;
-    });
+    const fetchPromise = fetch(request)
+      .then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CURRENT_CACHE).then((cache) => cache.put(request, clone));
+        }
+        return response;
+      })
+      .catch(() => inCache);
+
     return inCache || fetchPromise;
   });
 }
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CURRENT_CACHE).then((cache) => cache.addAll(CORE_ASSETS))
+    caches.open(CURRENT_CACHE)
+      .then((cache) => cache.addAll(CORE_ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -75,13 +74,9 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-
   if (event.request.method !== 'GET') return;
-
   if (url.pathname.includes('/manifest.json')) {
-    event.respondWith(cacheOnly(event.request));
-  } else if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkOnly(event.request));
+    event.respondWith(staleWhileRevalidate(event.request));
   } else if (event.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
     event.respondWith(networkFirst(event.request));
   } else if (url.pathname.endsWith('.css') || url.pathname.endsWith('.ts') || url.pathname.endsWith('.js')) {
