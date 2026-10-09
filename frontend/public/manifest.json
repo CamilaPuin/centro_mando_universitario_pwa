@@ -1,17 +1,19 @@
 {
-  "name": "Proyecto PWA",
-  "short_name": "PWA",
-  "description": "Centro de mando universitario personal",
+  "name": "Centro de Mando Universitario Personal",
+  "short_name": "U Control",
+  "description": "PWA de gestión académica personal, entregas, notas y tiempo de estudio",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#0b1220",
-  "theme_color": "#0b1220",
+  "theme_color": "#3a2e5c",
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/icons/icon-512.png",
