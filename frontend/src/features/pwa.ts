@@ -1,7 +1,7 @@
 export function inicializarPwa(): void {
   if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
         .then(reg => console.log('Workbox SW registrado:', reg.scope))
         .catch(err => console.error('Error al registrar SW:', err));
     });
