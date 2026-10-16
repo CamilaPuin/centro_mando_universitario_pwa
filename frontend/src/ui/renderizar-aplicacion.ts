@@ -15,7 +15,7 @@ export function renderizarAplicacion(): void {
     <div class="app-container">
       <header class="top-nav">
         <div class="brand-section">
-          <img src="/icons/icon-192.png" alt="Centro de Mando Universitario" class="brand-logo" />
+          <img src="icons/icon-192.png" alt="Centro de Mando Universitario" class="brand-logo" />
           <div>
             <div class="brand-title">Centro de Mando Universitario</div>
             <div class="brand-subtitle">Gestión académica personal</div>
