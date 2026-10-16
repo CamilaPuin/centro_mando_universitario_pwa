@@ -148,6 +148,107 @@ body {
   color: #4c1d95;
 }
 
+.device-tools {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 20px;
+  margin: 0 0 28px;
+}
+
+.device-tools > .dashboard-panel {
+  min-width: 0;
+}
+
+.device-help,
+.device-status {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin-top: 8px;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.profile-photo-preview {
+  display: block;
+  width: min(100%, 240px);
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  margin-top: 16px;
+}
+
+.deadline-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.deadline-controls label {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.record-delete {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  border-radius: 6px;
+  color: #9f1239;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  margin-top: 8px;
+  padding: 5px 9px;
+}
+
+.record-delete:hover:not(:disabled) {
+  background: #ffe4e6;
+}
+
+.record-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.camera-dialog {
+  border: 0;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  margin: auto;
+  max-width: min(92vw, 720px);
+  padding: 24px;
+  width: 100%;
+}
+
+.camera-dialog::backdrop {
+  background: rgba(24, 17, 46, 0.72);
+}
+
+.camera-dialog-content h2 {
+  color: var(--text-main);
+  font-size: 1.2rem;
+  margin-bottom: 14px;
+}
+
+.camera-dialog video {
+  background: #120d20;
+  border-radius: var(--radius-md);
+  display: block;
+  max-height: 65vh;
+  object-fit: contain;
+  width: 100%;
+}
+
+.camera-dialog .profile-actions {
+  justify-content: flex-end;
+}
+
 [hidden] {
   display: none !important;
 }
