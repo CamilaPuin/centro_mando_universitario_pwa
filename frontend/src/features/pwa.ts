@@ -1,7 +1,7 @@
 export function inicializarPwa(): void {
   if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
+      navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
         .then(reg => console.log('Workbox SW registrado:', reg.scope))
         .catch(err => console.error('Error al registrar SW:', err));
     });
@@ -34,8 +34,12 @@ export function inicializarPwa(): void {
   }
 
   let deferredInstallPrompt: BeforeInstallPromptEvent | undefined;
-  const installButton = document.getElementById('install-app') as HTMLButtonElement;
-  const iosInstallHelp = document.getElementById('ios-install-help') as HTMLParagraphElement;
+  const installButton = document.getElementById('install-app') as HTMLButtonElement | null;
+  const iosInstallHelp = document.getElementById('ios-install-help') as HTMLParagraphElement | null;
+
+  if (installButton) installButton.hidden = true;
+  if (iosInstallHelp) iosInstallHelp.hidden = true;
+
   const isIosDevice =
     /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -46,29 +50,32 @@ export function inicializarPwa(): void {
   window.addEventListener('beforeinstallprompt', event => {
     event.preventDefault();
     deferredInstallPrompt = event as BeforeInstallPromptEvent;
-    installButton.hidden = false;
-    iosInstallHelp.hidden = true;
+    
+    if (installButton) installButton.hidden = false;
+    if (iosInstallHelp) iosInstallHelp.hidden = true;
   });
 
-  installButton.addEventListener('click', async () => {
-    if (!deferredInstallPrompt) return;
+  if (installButton) {
+    installButton.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) return;
 
-    const installPrompt = deferredInstallPrompt;
-    deferredInstallPrompt = undefined;
-    installButton.hidden = true;
+      const installPrompt = deferredInstallPrompt;
+      deferredInstallPrompt = undefined;
+      installButton.hidden = true;
 
-    await installPrompt.prompt();
-    const choice = await installPrompt.userChoice;
-    console.info('Resultado de instalación:', choice.outcome);
-  });
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      console.info('Resultado de instalación:', choice.outcome);
+    });
+  }
 
   window.addEventListener('appinstalled', () => {
     deferredInstallPrompt = undefined;
-    installButton.hidden = true;
-    iosInstallHelp.hidden = true;
+    if (installButton) installButton.hidden = true;
+    if (iosInstallHelp) iosInstallHelp.hidden = true;
   });
 
-  if (isIosDevice && isSafari) {
+  if (isIosDevice && isSafari && iosInstallHelp) {
     iosInstallHelp.hidden = false;
   }
 
