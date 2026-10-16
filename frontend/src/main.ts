@@ -2,7 +2,7 @@ import './style.css';
 import { abrirBaseDeDatos, agregarNotaPrivada, obtenerNotasPrivadas, type NotaPrivada } from './utils/db';
 import { derivarClave, cifrarTexto, descifrarTexto } from './utils/crypto';
 
-if ('serviceWorker' in navigator) {
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then(reg => console.log('Workbox SW registrado:', reg.scope))
@@ -43,18 +43,19 @@ app.innerHTML = `
     </header>
 
     <div id="offline-banner" class="offline-banner" role="status" aria-live="polite" hidden>
-      Sin conexión — mostrando datos guardados en caché
+      Sin conexión: mostrando datos guardados en caché
     </div>
     <p id="ios-install-help" class="ios-install-help" role="note" hidden>
       Para instalar en iOS: toca Compartir ➔ Añadir a la pantalla de inicio
     </p>
 
-    <nav class="nav-tabs">
-      <button class="tab-btn active" data-tab="tab-resumen">Resumen del Día</button>
-      <button class="tab-btn" data-tab="tab-entregas">Tablero de Entregas</button>
-      <button class="tab-btn" data-tab="tab-pomodoro">Cronómetro y Pomodoro</button>
-      <button class="tab-btn" data-tab="tab-notas">Notas Privadas (Cifradas)</button>
-    </nav>
+    <main id="main-content">
+      <nav class="nav-tabs" aria-label="Secciones del Centro de Mando">
+        <button class="tab-btn active" data-tab="tab-resumen">Resumen del Día</button>
+        <button class="tab-btn" data-tab="tab-entregas">Tablero de Entregas</button>
+        <button class="tab-btn" data-tab="tab-pomodoro">Cronómetro y Pomodoro</button>
+        <button class="tab-btn" data-tab="tab-notas">Notas Privadas (Cifradas)</button>
+      </nav>
 
     <section id="tab-resumen" class="tab-view active">
       <div class="hero-banner">
@@ -257,7 +258,7 @@ app.innerHTML = `
         </p>
 
         <div class="pomo-materia-row">
-          <label>Asignatura:</label>
+          <label for="pomo-materia-select">Asignatura:</label>
           <select id="pomo-materia-select" class="form-control inline">
             <option value="Cálculo II">Cálculo II</option>
             <option value="Base de Datos">Base de Datos</option>
@@ -316,6 +317,8 @@ app.innerHTML = `
         </div>
       </div>
     </section>
+
+    </main>
 
     <footer class="app-footer">
       Centro de Mando Universitario Personal • PWA de Gestión Académica • 2026
