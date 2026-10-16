@@ -9,7 +9,16 @@ export interface NotaPrivada {
 
 export function abrirBaseDeDatos(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const peticion = indexedDB.open('centro-mando-db', 1);
+    if (
+      !('indexedDB' in window) ||
+      typeof window.indexedDB === 'undefined' ||
+      typeof window.indexedDB.open !== 'function'
+    ) {
+      reject(new Error('IndexedDB no está disponible en este navegador.'));
+      return;
+    }
+
+    const peticion = window.indexedDB.open('centro-mando-db', 1);
 
     peticion.onupgradeneeded = event => {
       const db = peticion.result;

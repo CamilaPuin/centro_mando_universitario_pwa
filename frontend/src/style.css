@@ -16,7 +16,7 @@
   --accent-rose:      #f43f5e;
   --accent-emerald:   #10b981;
   --text-main:        #18112e;
-  --text-muted:       #67637b;
+  --text-muted:       #55516b;
   --text-inverse:     #fbfaff;
   --border-light:     #e8e3f5;
   --border-dark:      rgba(255, 255, 255, 0.12);
@@ -35,7 +35,7 @@
 }
 
 body {
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background-color: var(--bg-page);
   color: var(--text-main);
   min-height: 100vh;
@@ -111,6 +111,45 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.install-button {
+  background: var(--primary);
+  border: 0;
+  border-radius: 9999px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 8px 14px;
+}
+
+.install-button:hover {
+  background: var(--primary-hover);
+}
+
+.offline-banner,
+.ios-install-help {
+  margin: -8px 0 20px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.88rem;
+}
+
+.offline-banner {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+}
+
+.ios-install-help {
+  background: var(--primary-light);
+  color: #4c1d95;
+}
+
+[hidden] {
+  display: none !important;
 }
 
 .date-pill {
@@ -261,7 +300,7 @@ body {
 
 .hero-subtitle {
   font-size: 0.95rem;
-  color: #d8b4fe;
+  color: #ede9fe;
   max-width: 600px;
 }
 
@@ -303,12 +342,12 @@ body {
 
 /* Variante urgente — reemplaza style="color: #fca5a5;" inline */
 .metric-value.urgent {
-  color: #fca5a5;
+  color: #fecaca;
 }
 
 .metric-detail {
   font-size: 0.8rem;
-  color: #cbd5e1;
+  color: #f1f5f9;
   margin-top: 4px;
 }
 
@@ -380,7 +419,7 @@ body {
 /* Badge de alerta — reemplaza style="background:#fee2e2;color:#dc2626;" inline */
 .panel-badge.danger {
   background: #fee2e2;
-  color: #dc2626;
+  color: #b91c1c;
 }
 
 .agenda-list {
@@ -517,17 +556,17 @@ body {
 
 .tag.tag-urgent {
   background-color: #fee2e2;
-  color: #dc2626;
+  color: #b91c1c;
 }
 
 .tag.tag-warning {
   background-color: #fef3c7;
-  color: #b45309;
+  color: #92400e;
 }
 
 .tag.tag-info {
   background-color: #e0f2fe;
-  color: #0369a1;
+  color: #075985;
 }
 
 .kanban-grid {
@@ -852,9 +891,36 @@ textarea.form-control {
   transition: color 0.2s ease;
 }
 
+.crypto-result.is-loading {
+  color: transparent;
+  min-height: 54px;
+  position: relative;
+  overflow: hidden;
+}
+
+.crypto-result.is-loading::after {
+  animation: loading-shimmer 1.4s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, #e8e3f5, transparent);
+  content: '';
+  inset: 0;
+  position: absolute;
+  transform: translateX(-100%);
+}
+
+@keyframes loading-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 /* Estados dinámicos del resultado — reemplazan output.style.color desde JS */
-.crypto-result.state-error   { color: #dc2626; }
-.crypto-result.state-success { color: #15803d; }
+.crypto-result.state-error   { color: #b91c1c; }
+.crypto-result.state-success { color: #166534; }
 .crypto-result.state-muted   { color: #4b5563; }
 .crypto-result.state-info    { color: #1e1b4b; }
 
@@ -879,7 +945,7 @@ textarea.form-control {
 
 .decrypted-note-date {
   font-size: 0.75rem;
-  color: #6b7280;
+  color: #4b5563;
   margin-top: 6px;
 }
 

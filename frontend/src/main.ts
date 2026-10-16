@@ -2,12 +2,11 @@ import './style.css';
 import { abrirBaseDeDatos, agregarNotaPrivada, obtenerNotasPrivadas, type NotaPrivada } from './utils/db';
 import { derivarClave, cifrarTexto, descifrarTexto } from './utils/crypto';
 
-if ('serviceWorker' in navigator) {
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').then(
-      (reg) => console.log('Service Worker registrado correctamente con alcance:', reg.scope),
-      (err) => console.warn('Fallo al registrar Service Worker:', err)
-    );
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('Workbox SW registrado:', reg.scope))
+      .catch(err => console.error('Error al registrar SW:', err));
   });
 }
 
@@ -35,6 +34,7 @@ app.innerHTML = `
         <div class="date-pill">
           <span>${fechaFormateada}</span>
         </div>
+        <button id="install-app" class="install-button" type="button" hidden>Instalar Centro de Mando</button>
         <span id="network-status" class="badge online">
           <span class="badge-dot"></span>
           <span>En línea</span>
@@ -42,12 +42,20 @@ app.innerHTML = `
       </div>
     </header>
 
-    <nav class="nav-tabs">
-      <button class="tab-btn active" data-tab="tab-resumen">Resumen del Día</button>
-      <button class="tab-btn" data-tab="tab-entregas">Tablero de Entregas</button>
-      <button class="tab-btn" data-tab="tab-pomodoro">Cronómetro y Pomodoro</button>
-      <button class="tab-btn" data-tab="tab-notas">Notas Privadas (Cifradas)</button>
-    </nav>
+    <div id="offline-banner" class="offline-banner" role="status" aria-live="polite" hidden>
+      Sin conexión: mostrando datos guardados en caché
+    </div>
+    <p id="ios-install-help" class="ios-install-help" role="note" hidden>
+      Para instalar en iOS: toca Compartir ➔ Añadir a la pantalla de inicio
+    </p>
+
+    <main id="main-content">
+      <nav class="nav-tabs" aria-label="Secciones del Centro de Mando">
+        <button class="tab-btn active" data-tab="tab-resumen">Resumen del Día</button>
+        <button class="tab-btn" data-tab="tab-entregas">Tablero de Entregas</button>
+        <button class="tab-btn" data-tab="tab-pomodoro">Cronómetro y Pomodoro</button>
+        <button class="tab-btn" data-tab="tab-notas">Notas Privadas (Cifradas)</button>
+      </nav>
 
     <section id="tab-resumen" class="tab-view active">
       <div class="hero-banner">
@@ -250,7 +258,7 @@ app.innerHTML = `
         </p>
 
         <div class="pomo-materia-row">
-          <label>Asignatura:</label>
+          <label for="pomo-materia-select">Asignatura:</label>
           <select id="pomo-materia-select" class="form-control inline">
             <option value="Cálculo II">Cálculo II</option>
             <option value="Base de Datos">Base de Datos</option>
@@ -310,6 +318,8 @@ app.innerHTML = `
       </div>
     </section>
 
+    </main>
+
     <footer class="app-footer">
       Centro de Mando Universitario Personal • PWA de Gestión Académica • 2026
     </footer>
@@ -318,18 +328,68 @@ app.innerHTML = `
 
 function actualizarEstadoRed() {
   const badge = document.getElementById('network-status');
+  const offlineBanner = document.getElementById('offline-banner');
   if (!badge) return;
   if (navigator.onLine) {
     badge.className = 'badge online';
     badge.innerHTML = `<span class="badge-dot"></span><span>En línea</span>`;
+    if (offlineBanner) offlineBanner.hidden = true;
   } else {
     badge.className = 'badge offline';
     badge.innerHTML = `<span class="badge-dot"></span><span>Sin conexión (Offline)</span>`;
+    if (offlineBanner) offlineBanner.hidden = false;
   }
 }
 window.addEventListener('online', actualizarEstadoRed);
 window.addEventListener('offline', actualizarEstadoRed);
 actualizarEstadoRed();
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
+}
+
+let deferredInstallPrompt: BeforeInstallPromptEvent | undefined;
+const installButton = document.getElementById('install-app') as HTMLButtonElement;
+const iosInstallHelp = document.getElementById('ios-install-help') as HTMLParagraphElement;
+const isIosDevice =
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isSafari =
+  /Safari/.test(navigator.userAgent) &&
+  !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
+
+window.addEventListener('beforeinstallprompt', event => {
+  event.preventDefault();
+  deferredInstallPrompt = event as BeforeInstallPromptEvent;
+  installButton.hidden = false;
+  iosInstallHelp.hidden = true;
+});
+
+installButton.addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+
+  const installPrompt = deferredInstallPrompt;
+  deferredInstallPrompt = undefined;
+  installButton.hidden = true;
+
+  await installPrompt.prompt();
+  const choice = await installPrompt.userChoice;
+  console.info('Resultado de instalación:', choice.outcome);
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = undefined;
+  installButton.hidden = true;
+  iosInstallHelp.hidden = true;
+});
+
+if (isIosDevice && isSafari) {
+  iosInstallHelp.hidden = false;
+}
 
 const tabButtons = document.querySelectorAll<HTMLButtonElement>('.tab-btn');
 const tabViews = document.querySelectorAll<HTMLElement>('.tab-view');
@@ -430,19 +490,47 @@ pomoBreakBtn.addEventListener('click', () => {
   pomoToggleBtn.textContent = 'Iniciar Descanso';
 });
 
-let db: IDBDatabase;
+let db: IDBDatabase | undefined;
+const cryptoOutput = document.getElementById('crypto-output') as HTMLDivElement;
+const btnGuardar = document.getElementById('btn-guardar') as HTMLButtonElement;
+const btnCargar = document.getElementById('btn-cargar') as HTMLButtonElement;
+btnGuardar.disabled = true;
+btnCargar.disabled = true;
+cryptoOutput.classList.add('is-loading');
+cryptoOutput.setAttribute('aria-busy', 'true');
+cryptoOutput.textContent = 'Preparando el almacenamiento local…';
 
-abrirBaseDeDatos().then(database => {
-  db = database;
-  console.log('IndexedDB conectada correctamente para Centro de Mando');
-}).catch(err => console.error('Error al abrir la BD:', err));
+if (
+  'indexedDB' in window &&
+  typeof window.indexedDB !== 'undefined' &&
+  typeof window.indexedDB.open === 'function'
+) {
+  abrirBaseDeDatos().then(database => {
+    db = database;
+    console.log('IndexedDB conectada correctamente para Centro de Mando');
+    cryptoOutput.classList.remove('is-loading');
+    cryptoOutput.removeAttribute('aria-busy');
+    cryptoOutput.textContent = 'Almacenamiento local listo. Tus notas se guardan en este dispositivo.';
+    btnGuardar.disabled = false;
+    btnCargar.disabled = false;
+  }).catch(err => {
+    console.error('Error al abrir la BD:', err);
+    cryptoOutput.classList.remove('is-loading');
+    cryptoOutput.removeAttribute('aria-busy');
+    cryptoOutput.classList.add('state-error');
+    cryptoOutput.textContent = 'No fue posible abrir el almacenamiento local. Las notas no están disponibles.';
+  });
+} else {
+  cryptoOutput.classList.remove('is-loading');
+  cryptoOutput.removeAttribute('aria-busy');
+  cryptoOutput.classList.add('state-error');
+  cryptoOutput.textContent = 'Este navegador no admite IndexedDB; las notas privadas no están disponibles.';
+}
 
 const passInput = document.getElementById('pass-key') as HTMLInputElement;
 const notaInput = document.getElementById('nota-input') as HTMLTextAreaElement;
 const materiaSelect = document.getElementById('nota-materia') as HTMLSelectElement;
-const btnGuardar = document.getElementById('btn-guardar') as HTMLButtonElement;
-const btnCargar = document.getElementById('btn-cargar') as HTMLButtonElement;
-const output = document.getElementById('crypto-output') as HTMLDivElement;
+const output = cryptoOutput;
 
 btnGuardar.addEventListener('click', async () => {
   const password = passInput.value;
@@ -455,8 +543,22 @@ btnGuardar.addEventListener('click', async () => {
     return;
   }
 
+  if (!db) {
+    output.className = 'crypto-result state-error';
+    output.textContent = 'El almacenamiento local no está disponible en este navegador.';
+    return;
+  }
+
   try {
-    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const salt = new Uint8Array(16);
+    if (
+      !('crypto' in window) ||
+      typeof window.crypto === 'undefined' ||
+      typeof window.crypto.getRandomValues !== 'function'
+    ) {
+      throw new Error('La generación segura de números aleatorios no está disponible.');
+    }
+    window.crypto.getRandomValues(salt);
     const clave = await derivarClave(password, salt);
     const { cifrado, iv } = await cifrarTexto(clave, textoNota);
 
@@ -488,6 +590,12 @@ btnCargar.addEventListener('click', async () => {
     return;
   }
 
+  if (!db) {
+    output.className = 'crypto-result state-error';
+    output.textContent = 'El almacenamiento local no está disponible en este navegador.';
+    return;
+  }
+
   try {
     const notas = await obtenerNotasPrivadas(db);
     if (notas.length === 0) {
@@ -497,7 +605,15 @@ btnCargar.addEventListener('click', async () => {
     }
 
     const ultimaNota = notas[notas.length - 1];
-    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const salt = new Uint8Array(16);
+    if (
+      !('crypto' in window) ||
+      typeof window.crypto === 'undefined' ||
+      typeof window.crypto.getRandomValues !== 'function'
+    ) {
+      throw new Error('La generación segura de números aleatorios no está disponible.');
+    }
+    window.crypto.getRandomValues(salt);
     const clave = await derivarClave(password, salt);
     
     const textoDescifrado = await descifrarTexto(clave, {
