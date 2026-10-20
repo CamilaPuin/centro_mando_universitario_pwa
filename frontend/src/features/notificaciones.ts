@@ -178,7 +178,7 @@ async function habilitarNotificaciones(status: HTMLElement): Promise<void> {
       : undefined;
     if (registration) {
       await registration.showNotification('Recordatorios académicos activados', {
-        body: 'Avisaremos sobre entregas en las próximas 24 horas, exámenes y clases próximas.',
+        body: 'Gracias por aceptar el permiso de notificaciones, avisaremos sobre entregas en las próximas 24 horas, exámenes y clases próximas.',
         tag: 'recordatorios-activados',
         data: { url: registration.scope }
       });

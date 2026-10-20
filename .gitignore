@@ -10,12 +10,16 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+coverage
+playwright-report
+test-results
 *.local
 
 # Local environment values; keep the shareable template
 .env
 .env.*
 .env.example
+**/.env.example
 
 # Workbox runtime libraries are copied from node_modules during the frontend build
 frontend/public/lib/
@@ -23,7 +27,10 @@ frontend/public/lib/
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+**/.vscode/*
+!**/.vscode/extensions.json
 .idea
+**/.idea/
 .DS_Store
 *.suo
 *.ntvs*
@@ -32,4 +39,22 @@ frontend/public/lib/
 *.sw?
 
 desktop.ini
-.DS_Store
+
+*.class
+*.jar
+*.war
+
+# Maven/Java build output and local IDE metadata
+**/target/
+**/build/
+**/.gradle/
+.classpath
+.project
+.settings/
+
+# Local databases and generated logs
+*.db
+*.sqlite
+*.sqlite3
+*.log
+logs/
