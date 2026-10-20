@@ -1,30 +1,15 @@
-import { API_BASE_URL, PUSH_PUBLIC_KEY } from '../config';
+import { apiRequest, isAuthenticated } from '../services/api';
 import {
   listarAsignaturas,
   listarClasesHorario,
   listarEntregas
 } from '../utils/db';
 
-interface PushManagerRegistration extends ServiceWorkerRegistration {
-  pushManager: PushManager;
-}
-
-function clavePublicaABytes(clave: string): ArrayBuffer {
-  const normalizada = clave.replace(/-/g, '+').replace(/_/g, '/');
-  const rellena = normalizada.padEnd(Math.ceil(normalizada.length / 4) * 4, '=');
-  const decodificados = atob(rellena);
-  const buffer = new ArrayBuffer(decodificados.length);
-  const bytes = new Uint8Array(buffer);
-  for (let index = 0; index < decodificados.length; index++) {
-    bytes[index] = decodificados.charCodeAt(index);
-  }
-  return buffer;
-}
-
 const ENABLED_KEY = 'centro-mando-recordatorios-activos';
 const SENT_REMINDERS_KEY = 'centro-mando-recordatorios-enviados';
 let reminderTimer: number | undefined;
 let reminderRun: (() => void) | undefined;
+let remoteNotificationsCheckedAt = 0;
 
 function readSentReminders(): Set<string> {
   try {
@@ -70,7 +55,8 @@ async function sendReminder(
 
 async function revisarRecordatorios(
   databaseReady: Promise<IDBDatabase | undefined>,
-  sent: Set<string>
+  sent: Set<string>,
+  status: HTMLElement
 ): Promise<void> {
   if (Notification.permission !== 'granted') return;
   const db = await databaseReady;
@@ -82,6 +68,22 @@ async function revisarRecordatorios(
   ]);
   const now = new Date();
   const subjectNames = new Map(subjects.map(subject => [subject.id, subject.nombre]));
+  if (isAuthenticated() && navigator.onLine && Date.now() - remoteNotificationsCheckedAt > 5 * 60_000) {
+    try {
+      const notifications = await apiRequest<RemoteNotification[]>('/notifications');
+      remoteNotificationsCheckedAt = Date.now();
+      for (const notification of notifications) {
+        const key = `server:${notification.id}`;
+        if (sent.has(key)) continue;
+        await sendReminder(notification.title, notification.message, key);
+        sent.add(key);
+        storeSentReminders(sent);
+      }
+    } catch (error) {
+      console.error('No se pudieron cargar alertas del servidor:', error);
+      status.textContent = `Alertas del servidor no disponibles; continúan los recordatorios locales: ${error instanceof Error ? error.message : 'error de conexión.'}`;
+    }
+  }
   for (const delivery of deliveries) {
     if (delivery.estado === 'entregada' || !delivery.fechaEntrega) continue;
     const dueAt = new Date(delivery.fechaEntrega);
@@ -125,7 +127,7 @@ function activateAcademicReminders(
   if (reminderTimer !== undefined) window.clearInterval(reminderTimer);
   const sent = readSentReminders();
   const run = (): void => {
-    void revisarRecordatorios(databaseReady, sent).catch(error => {
+    void revisarRecordatorios(databaseReady, sent, status).catch(error => {
       console.error('No se pudieron revisar los próximos recordatorios:', error);
       status.textContent = 'El permiso está activo, pero no se pudieron revisar las fechas académicas locales.';
     });
@@ -188,43 +190,26 @@ async function habilitarNotificaciones(status: HTMLElement): Promise<void> {
       });
     }
 
-    if (!('PushManager' in window) || !registration) {
-      status.textContent = 'Notificaciones locales activadas. Push requiere soporte de Push y un service worker registrado.';
-      return;
-    }
-
-    const workerRegistration = registration as PushManagerRegistration;
-    const clavePublica = PUSH_PUBLIC_KEY;
-    if (!clavePublica) {
-      status.textContent = 'Recordatorios locales activados. Push remoto necesita la clave pública y el endpoint de suscripción de tu backend.';
-      return;
-    }
-
-    const subscription = await workerRegistration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: clavePublicaABytes(clavePublica)
-    });
-    const response = await fetch(`${API_BASE_URL}/suscribir`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(subscription)
-    });
-    if (!response.ok) {
-      throw new Error(`No se pudo guardar la suscripción Push (HTTP ${response.status}).`);
-    }
-    status.textContent = 'Recordatorios académicos locales y Push activados.';
+    status.textContent = isAuthenticated()
+      ? 'Recordatorios locales y alertas del servidor activados.'
+      : 'Recordatorios locales activados. Conecta tu cuenta para recibir alertas del servidor.';
   } catch (error) {
-    console.error('No se pudieron activar las notificaciones Push:', error);
+    console.error('No se pudieron activar las notificaciones:', error);
     status.textContent = error instanceof Error
-      ? `Notificación local activada; Push no disponible: ${error.message}`
-      : 'Notificación local activada; no se pudo completar la suscripción Push.';
+      ? `Notificación local activada; alertas del servidor no disponibles: ${error.message}`
+      : 'Notificación local activada; alertas del servidor no disponibles.';
   }
+
 }
 
 export function inicializarNotificaciones(databaseReady: Promise<IDBDatabase | undefined>): void {
   const button = document.getElementById('btn-enable-notifications') as HTMLButtonElement | null;
   const status = document.getElementById('notification-status');
   if (!button || !status) return;
+  window.addEventListener('auth-changed', () => {
+    remoteNotificationsCheckedAt = 0;
+    reminderRun?.();
+  });
 
   button.addEventListener('click', () => {
     void habilitarNotificaciones(status).then(() => {
@@ -246,4 +231,10 @@ export function inicializarNotificaciones(databaseReady: Promise<IDBDatabase | u
   } catch (error) {
     console.warn('No se pudo restaurar la preferencia de recordatorios:', error);
   }
+}
+
+interface RemoteNotification {
+  id: string;
+  title: string;
+  message: string;
 }

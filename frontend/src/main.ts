@@ -12,10 +12,12 @@ import { inicializarCalendario } from './features/calendario';
 import { inicializarProgreso } from './features/progreso';
 import { inicializarPerfil } from './features/profile';
 import { abrirBaseDeDatos } from './utils/db';
+import { inicializarAutenticacion } from './features/auth';
 
 renderizarAplicacion();
 inicializarPwa();
 inicializarNavegacion();
+inicializarAutenticacion();
 const databaseReady = 'indexedDB' in window &&
   typeof window.indexedDB !== 'undefined' &&
   typeof window.indexedDB.open === 'function'

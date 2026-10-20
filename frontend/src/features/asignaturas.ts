@@ -8,6 +8,7 @@ import {
   type Asignatura,
   type ClaseHorario
 } from '../utils/db';
+import { apiRequest, isAuthenticated } from '../services/api';
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -151,6 +152,12 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
             try {
               const db = await databaseReady;
               if (!db || asignatura.id === undefined) throw new Error('No se pudo abrir el almacenamiento local.');
+              if (asignatura.backendId && (!isAuthenticated() || !navigator.onLine)) {
+                throw new Error('Conéctate e inicia sesión para eliminar una asignatura sincronizada.');
+              }
+              if (isAuthenticated() && navigator.onLine && asignatura.backendId) {
+                await apiRequest<void>(`/subjects/${asignatura.backendId}`, { method: 'DELETE' });
+              }
               await eliminarAsignatura(db, asignatura.id);
               subjectFeedback.textContent = `Se eliminó ${asignatura.nombre}.`;
               await actualizar();
@@ -207,6 +214,12 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
             try {
               const db = await databaseReady;
               if (!db || clase.id === undefined) throw new Error('No se pudo abrir el almacenamiento local.');
+              if (clase.backendId && (!isAuthenticated() || !navigator.onLine)) {
+                throw new Error('Conéctate e inicia sesión para eliminar una clase sincronizada.');
+              }
+              if (isAuthenticated() && navigator.onLine && clase.backendId) {
+                await apiRequest<void>(`/calendar/class-schedules/${clase.backendId}`, { method: 'DELETE' });
+              }
               await eliminarClaseHorario(db, clase.id);
               classFeedback.textContent = 'Clase eliminada del horario.';
               await actualizar();
@@ -249,10 +262,32 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
       if (!nombre) throw new Error('Escribe el nombre de la asignatura.');
       await guardarAsignatura(db, {
         ...(inputSubjectId.value ? { id: Number(inputSubjectId.value) } : {}),
-        nombre
+        nombre,
+        syncPending: true
       });
+      const asignaturas = await listarAsignaturas(db);
+      const guardada = asignaturas.find(item => item.nombre === nombre);
+      if (guardada && isAuthenticated() && navigator.onLine) {
+        try {
+          const payload = { name: nombre, teacher: '', schedule: '', credits: 3 };
+          const response = guardada.backendId
+            ? await apiRequest< { id: number }>(`/subjects/${guardada.backendId}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload)
+              })
+            : await apiRequest<{ id: number }>('/subjects', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+              });
+          await guardarAsignatura(db, { ...guardada, backendId: response.id, syncPending: false });
+          subjectFeedback.textContent = 'Asignatura guardada y sincronizada.';
+        } catch (error) {
+          subjectFeedback.textContent = `Asignatura guardada localmente; no se sincronizó: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+        }
+      } else {
+        subjectFeedback.textContent = 'Asignatura guardada localmente.';
+      }
       resetSubjectForm();
-      subjectFeedback.textContent = 'Asignatura guardada correctamente.';
       await actualizar();
     } catch (error) {
       console.error('No se pudo guardar la asignatura:', error);
@@ -290,16 +325,49 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
       );
       if (cruza) throw new Error('Ese horario se cruza con otra clase del mismo día.');
 
-      await guardarClaseHorario(db, {
+      const asignaturaSeleccionada = (await listarAsignaturas(db))
+        .find(asignatura => asignatura.id === asignaturaId);
+      if (!asignaturaSeleccionada) throw new Error('No se encontró la asignatura seleccionada.');
+      const claseGuardada = await guardarClaseHorario(db, {
         ...(idActual === undefined ? {} : { id: idActual }),
         asignaturaId,
         diaSemana,
         horaInicio,
         horaFin,
-        aula: inputClassLocation.value.trim()
+        aula: inputClassLocation.value.trim(),
+        syncPending: true
       });
+      if (isAuthenticated() && navigator.onLine) {
+        if (!asignaturaSeleccionada.backendId) {
+          classFeedback.textContent = 'Clase guardada localmente; sincroniza primero la asignatura.';
+        } else {
+          try {
+            const payload = {
+              subjectId: asignaturaSeleccionada.backendId,
+              dayOfWeek: ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][diaSemana],
+              startTime: horaInicio,
+              endTime: horaFin,
+              location: inputClassLocation.value.trim()
+            };
+            const response = claseGuardada.backendId
+              ? await apiRequest<{ id: number }>(`/calendar/class-schedules/${claseGuardada.backendId}`, {
+                  method: 'PUT',
+                  body: JSON.stringify(payload)
+                })
+              : await apiRequest<{ id: number }>('/calendar/class-schedules', {
+                  method: 'POST',
+                  body: JSON.stringify(payload)
+                });
+            await guardarClaseHorario(db, { ...claseGuardada, backendId: response.id, syncPending: false });
+            classFeedback.textContent = 'Horario guardado y sincronizado.';
+          } catch (error) {
+            classFeedback.textContent = `Clase guardada localmente; no se sincronizó: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+          }
+        }
+      } else {
+        classFeedback.textContent = 'Horario guardado localmente.';
+      }
       resetClassForm();
-      classFeedback.textContent = 'Horario guardado correctamente.';
       await actualizar();
       window.dispatchEvent(new Event('horario-actualizado'));
     } catch (error) {

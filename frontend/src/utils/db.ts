@@ -10,6 +10,8 @@ export interface NotaPrivada {
 
 export interface ApunteMateria {
   id?: number;
+  backendId?: number;
+  syncPending?: boolean;
   asignaturaId?: number;
   asignatura: string;
   contenido: string;
@@ -30,16 +32,21 @@ export interface MetasEstudio {
   minutosSemanales: number;
   promedioDeseado: number;
   actualizadoEn: string;
+  syncPending?: boolean;
 }
 
 export interface Asignatura {
   id?: number;
+  backendId?: number;
+  syncPending?: boolean;
   nombre: string;
   creadoEn: string;
 }
 
 export interface ClaseHorario {
   id?: number;
+  backendId?: number;
+  syncPending?: boolean;
   asignaturaId: number;
   diaSemana: number;
   horaInicio: string;
@@ -49,6 +56,7 @@ export interface ClaseHorario {
 
 export interface SesionEstudio {
   id?: number;
+  backendId?: number;
   asignatura: string;
   tipo: 'pomodoro' | 'cronometro';
   inicio: string;
@@ -74,6 +82,9 @@ export interface EvidenciaLocal {
 
 export interface EntregaAcademica {
   id?: number;
+  backendId?: number;
+  evaluationBackendId?: number;
+  asignaturaId?: number;
   titulo: string;
   asignatura: string;
   fechaEntrega: string;
