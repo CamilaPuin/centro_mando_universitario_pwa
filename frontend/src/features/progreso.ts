@@ -4,6 +4,7 @@ import {
   listarSesionesEstudio,
   obtenerMetas
 } from '../utils/db';
+import { apiRequest, isAuthenticated } from '../services/api';
 
 function mondayOf(date: Date): Date {
   const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -97,6 +98,23 @@ export function inicializarProgreso(databaseReady: Promise<IDBDatabase | undefin
       renderItem('Promedio actual', average === undefined ? 'Sin calificaciones' : `${average.toFixed(2)} / 5`),
       renderItem('Meta de promedio', `${goalAverage.toFixed(1)} / 5`)
     );
+    if (isAuthenticated() && navigator.onLine) {
+      try {
+        const report = await apiRequest<WeeklySummaryReport>('/statistics/weekly');
+        weeklySummaryContainer.replaceChildren(
+          renderItem('Semana', report.weekRange),
+          renderItem('Tiempo de estudio', `${Math.floor(report.totalMinutesStudied / 60)} h ${report.totalMinutesStudied % 60} min`),
+          renderItem('Entregas completadas', String(report.tasksCompletedThisWeek)),
+          renderItem('Promedio general', `${report.overallGpa.toFixed(2)} / 5`),
+          renderItem('Materia más estudiada', report.mostStudiedSubject || 'Sin datos'),
+          renderItem('Autoevaluación', report.selfEvaluationFeedback),
+          renderItem('Sugerencia', report.recommendation)
+        );
+      } catch (error) {
+        console.error('No se pudo cargar el resumen semanal del servidor:', error);
+        goalsStatus.textContent = `Mostrando resumen semanal local; no se cargó el remoto: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+      }
+    }
     const studyDays = new Set(sessions
       .filter(session => session.duracionSegundos > 0)
       .map(session => new Date(session.inicio).toDateString()));
@@ -118,6 +136,38 @@ export function inicializarProgreso(databaseReady: Promise<IDBDatabase | undefin
       renderItem(`Nivel ${studyLevel}`, `${totalStudyMinutes} / ${nextLevelMinutes} min para el siguiente nivel`),
       renderItem('Logros obtenidos', earned.length ? earned.join(' · ') : 'Sigue registrando sesiones para desbloquear logros.')
     );
+    if (isAuthenticated() && navigator.onLine) {
+      try {
+        const profile = await apiRequest<GamificationProfile>('/gamification/profile');
+        const badges = profile.badges.filter(badge => badge.status === 'UNLOCKED').map(badge => badge.name);
+        gamificationContainer.replaceChildren(
+          renderItem('Racha actual', `${profile.currentStreakDays} día${profile.currentStreakDays === 1 ? '' : 's'}`),
+          renderItem(`Nivel ${profile.level}`, `${profile.currentLevelXp} / ${profile.xpForNextLevel} XP`),
+          renderItem('Insignias desbloqueadas', badges.length ? badges.join(' · ') : 'Sigue registrando actividad para desbloquear insignias.')
+        );
+      } catch (error) {
+        console.error('No se pudo cargar el perfil de gamificación del servidor:', error);
+        goalsStatus.textContent = `Mostrando gamificación local; no se cargó el perfil remoto: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+      }
+    }
+  }
+
+  interface GamificationProfile {
+    level: number;
+    currentLevelXp: number;
+    xpForNextLevel: number;
+    currentStreakDays: number;
+    badges: Array<{ name: string; status: string }>;
+  }
+
+  interface WeeklySummaryReport {
+    weekRange: string;
+    totalMinutesStudied: number;
+    tasksCompletedThisWeek: number;
+    overallGpa: number;
+    mostStudiedSubject: string;
+    selfEvaluationFeedback: string;
+    recommendation: string;
   }
 
   goalsForm.addEventListener('submit', event => {
@@ -134,8 +184,24 @@ export function inicializarProgreso(databaseReady: Promise<IDBDatabase | undefin
         if (!Number.isFinite(promedioDeseado) || promedioDeseado < 0 || promedioDeseado > 5) {
           throw new Error('El promedio deseado debe estar entre 0 y 5.');
         }
-        await guardarMetas(db, { minutosSemanales, promedioDeseado });
-        goalsStatus.textContent = 'Metas semanales guardadas.';
+        await guardarMetas(db, { minutosSemanales, promedioDeseado, syncPending: true });
+        if (isAuthenticated() && navigator.onLine) {
+          try {
+            await apiRequest('/statistics/goals', {
+              method: 'PUT',
+              body: JSON.stringify({
+                targetWeeklyMinutes: minutosSemanales,
+                targetAverageGrade: promedioDeseado
+              })
+            });
+            await guardarMetas(db, { minutosSemanales, promedioDeseado, syncPending: false });
+            goalsStatus.textContent = 'Metas guardadas y sincronizadas.';
+          } catch (error) {
+            goalsStatus.textContent = `Metas guardadas localmente; no se sincronizaron: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+          }
+        } else {
+          goalsStatus.textContent = 'Metas guardadas localmente.';
+        }
         await update();
       } catch (error) {
         goalsStatus.textContent = error instanceof Error ? error.message : 'No se pudieron guardar las metas.';
@@ -145,6 +211,7 @@ export function inicializarProgreso(databaseReady: Promise<IDBDatabase | undefin
   for (const eventName of ['sesion-estudio-guardada', 'entregas-actualizadas']) {
     window.addEventListener(eventName, () => void update());
   }
+  window.addEventListener('auth-changed', () => void update());
   void update().catch(error => {
     console.error('No se pudo calcular el progreso semanal:', error);
     goalsStatus.textContent = 'No se pudo cargar el progreso semanal.';

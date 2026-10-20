@@ -1,4 +1,5 @@
-import { guardarSesionEstudio } from '../utils/db';
+import { guardarSesionEstudio, listarAsignaturas } from '../utils/db';
+import { apiRequest, isAuthenticated } from '../services/api';
 
 type ModoTemporizador = 'enfoque' | 'descanso' | 'cronometro';
 type TipoSesion = 'pomodoro' | 'cronometro';
@@ -91,13 +92,44 @@ export function inicializarPomodoro(databaseReady: Promise<IDBDatabase | undefin
       if (!db) throw new Error('IndexedDB no está disponible; no se pudo guardar la sesión.');
       const fin = new Date();
       const inicio = sessionStartedAt || new Date(fin.getTime() - duracionSegundos * 1000).toISOString();
-      await guardarSesionEstudio(db, {
+      const localSessionId = await guardarSesionEstudio(db, {
         asignatura: activeSubject || subject.value,
         tipo,
         inicio,
         fin: fin.toISOString(),
         duracionSegundos
       });
+      if (isAuthenticated() && navigator.onLine && duracionSegundos >= 60) {
+        const assignments = await listarAsignaturas(db);
+        const selectedSubject = assignments.find(item => item.nombre === (activeSubject || subject.value));
+        if (selectedSubject && !selectedSubject.backendId) {
+          timerStatus.textContent = `Sesión guardada localmente; sincroniza primero ${selectedSubject.nombre}.`;
+        } else {
+          const sessionDate = new Date(inicio);
+          const dateValue = `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}-${String(sessionDate.getDate()).padStart(2, '0')}T${String(sessionDate.getHours()).padStart(2, '0')}:${String(sessionDate.getMinutes()).padStart(2, '0')}:${String(sessionDate.getSeconds()).padStart(2, '0')}`;
+          const remote = await apiRequest<{ id: number }>('/study/sessions', {
+            method: 'POST',
+            body: JSON.stringify({
+              ...(selectedSubject?.backendId ? { subjectId: selectedSubject.backendId } : {}),
+              durationMinutes: Math.floor(duracionSegundos / 60),
+              cycleType: tipo === 'cronometro' ? 'FREE_SESSION' : 'POMODORO_TRADITIONAL',
+              sessionDate: dateValue
+            })
+          });
+          const transaction = db.transaction('sesionesEstudio', 'readwrite');
+          const store = transaction.objectStore('sesionesEstudio');
+          const request = store.get(localSessionId);
+          request.onsuccess = () => {
+            if (request.result) store.put({ ...request.result, backendId: remote.id });
+          };
+          await new Promise<void>((resolve, reject) => {
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+            transaction.onabort = () => reject(transaction.error ?? new Error('No se pudo actualizar la copia de la sesión.'));
+          });
+          timerStatus.textContent = `Sesión registrada y sincronizada: ${formatTime(duracionSegundos)}.`;
+        }
+      }
       elapsedStudySeconds = 0;
       sessionStartedAt = '';
       activeSubject = '';

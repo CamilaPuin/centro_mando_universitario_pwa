@@ -1,8 +1,10 @@
 import {
   eliminarApunte,
   guardarApunte,
+  listarAsignaturas,
   listarApuntes
 } from '../utils/db';
+import { apiRequest, isAuthenticated } from '../services/api';
 
 export function inicializarNotas(databaseReady: Promise<IDBDatabase | undefined>): void {
   const form = document.getElementById('note-form') as HTMLFormElement | null;
@@ -78,6 +80,12 @@ export function inicializarNotas(databaseReady: Promise<IDBDatabase | undefined>
           try {
             const database = await databaseReady;
             if (!database || note.id === undefined) throw new Error('No se pudo acceder al apunte.');
+            if (note.backendId && (!isAuthenticated() || !navigator.onLine)) {
+              throw new Error('Conéctate e inicia sesión para eliminar un apunte sincronizado.');
+            }
+            if (isAuthenticated() && navigator.onLine && note.backendId) {
+              await apiRequest<void>(`/subjects/notes/${note.backendId}`, { method: 'DELETE' });
+            }
             await eliminarApunte(database, note.id);
             noteStatus.textContent = 'Apunte eliminado.';
             await renderNotes();
@@ -105,14 +113,36 @@ export function inicializarNotas(databaseReady: Promise<IDBDatabase | undefined>
         const existing = id === undefined
           ? undefined
           : (await listarApuntes(db)).find(note => note.id === id);
-        await guardarApunte(db, {
+        const subjectName = noteSubjectSelect.value;
+        const assignments = await listarAsignaturas(db);
+        const assignment = assignments.find(item => item.nombre === subjectName);
+        const saved = await guardarApunte(db, {
           ...(id === undefined ? {} : { id }),
-          asignatura: noteSubjectSelect.value,
+          ...(existing?.backendId === undefined ? {} : { backendId: existing.backendId }),
+          syncPending: true,
+          ...(assignment?.id === undefined ? {} : { asignaturaId: assignment.id }),
+          asignatura: subjectName,
           contenido,
           ...(existing ? { creadoEn: existing.creadoEn } : {})
         });
         resetForm();
-        noteStatus.textContent = 'Apunte guardado en este dispositivo.';
+        if (isAuthenticated() && navigator.onLine && assignment?.backendId) {
+          try {
+            const remote = await apiRequest<{ id: number }>(`/subjects/${assignment.backendId}/notes`, {
+              method: 'POST',
+              body: JSON.stringify({ title: 'Apunte', content: contenido })
+            });
+            if (existing?.backendId) {
+              await apiRequest<void>(`/subjects/notes/${existing.backendId}`, { method: 'DELETE' });
+            }
+            await guardarApunte(db, { ...saved, backendId: remote.id, syncPending: false });
+            noteStatus.textContent = 'Apunte guardado y sincronizado.';
+          } catch (error) {
+            noteStatus.textContent = `Apunte guardado localmente; no se sincronizó: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+          }
+        } else {
+          noteStatus.textContent = 'Apunte guardado localmente.';
+        }
         await renderNotes();
       } catch (error) {
         noteStatus.textContent = error instanceof Error ? error.message : 'No se pudo guardar el apunte.';
@@ -124,5 +154,6 @@ export function inicializarNotas(databaseReady: Promise<IDBDatabase | undefined>
   window.addEventListener('asignaturas-actualizadas', () => {
     void renderNotes();
   });
+  window.addEventListener('auth-changed', () => void renderNotes());
   void renderNotes();
 }

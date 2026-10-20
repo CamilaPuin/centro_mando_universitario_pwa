@@ -2,7 +2,7 @@ export const interfazDispositivo = `
   <div class="device-tools">
     <section class="dashboard-panel profile-panel" aria-labelledby="profile-title">
       <h2 id="profile-title" class="panel-title">Tu perfil</h2>
-      <p class="device-help">Tus datos se guardan localmente. Al conectar el backend podrás habilitar su sincronización con tu cuenta.</p>
+      <p class="device-help">Tus datos se guardan localmente. Al conectar con internet podrás habilitar su sincronización con tu cuenta.</p>
       <div class="profile-editor">
         <img id="profile-photo-preview" class="profile-photo-preview" alt="Foto de perfil" hidden />
         <form id="profile-form" class="delivery-form">
