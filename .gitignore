@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# Local environment values; keep the shareable template
+.env
+.env.*
+.env.example
+
+# Workbox runtime libraries are copied from node_modules during the frontend build
+frontend/public/lib/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

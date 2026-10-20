@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && npm run generate-sw",
+    "build": "npm run copy-workbox && tsc && vite build && npm run generate-sw",
     "preview": "vite preview",
-    "generate-sw": "workbox generateSW workbox-config.js",
+    "copy-workbox": "workbox copyLibraries public/lib",
+    "generate-sw": "workbox injectManifest workbox-config.js",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },

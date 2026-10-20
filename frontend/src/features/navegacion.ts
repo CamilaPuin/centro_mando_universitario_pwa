@@ -11,6 +11,12 @@ export function inicializarNavegacion(): void {
       const targetId = btn.getAttribute('data-tab');
       if (targetId) {
         document.getElementById(targetId)?.classList.add('active');
+        if (targetId !== 'tab-pomodoro' && document.body.classList.contains('focus-mode')) {
+          document.body.classList.remove('focus-mode');
+          const focusButton = document.getElementById('btn-focus-mode');
+          focusButton?.setAttribute('aria-pressed', 'false');
+          if (focusButton) focusButton.textContent = 'Activar modo enfoque';
+        }
       }
     });
   });

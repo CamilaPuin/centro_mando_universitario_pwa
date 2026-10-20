@@ -4,36 +4,23 @@ export const globPatterns = [
   'assets/**/*.css',
   'assets/**/*.js',
   'manifest.json',
-  'icons/*.png'
+  'icons/*.png',
+  'lib/workbox-v7.4.1/workbox-sw.js',
+  'lib/workbox-v7.4.1/workbox-core.prod.js',
+  'lib/workbox-v7.4.1/workbox-precaching.prod.js',
+  'lib/workbox-v7.4.1/workbox-routing.prod.js',
+  'lib/workbox-v7.4.1/workbox-strategies.prod.js',
+  'lib/workbox-v7.4.1/workbox-expiration.prod.js',
+  'lib/workbox-v7.4.1/workbox-background-sync.prod.js'
 ];
 export const globIgnores = [
   'node_modules/**/*',
   'workbox-config.js',
-  'package*.json'
+  'sw-propio.js',
+  'sw.js',
+  'package*.json',
+  '../servidor/**/*',
+  '../servidor/node_modules/**/*'
 ];
+export const swSrc = 'sw-propio.js';
 export const swDest = 'dist/sw.js';
-export const runtimeCaching = [
-  {
-    urlPattern: ({ url }) =>
-      url.pathname.startsWith('/icons/') ||
-      /\.(?:png|jpg|jpeg|svg|webp|avif)$/i.test(url.pathname),
-    handler: 'CacheFirst',
-    options: {
-      cacheName: 'imagenes-centro-mando',
-      expiration: {
-        maxEntries: 60,
-        maxAgeSeconds: 30 * 24 * 60 * 60
-      }
-    }
-  },
-  {
-    urlPattern: ({ url }) =>
-      url.pathname.startsWith('/api/') ||
-      /\/(asignaturas|tareas|entregas)(\/|$)/i.test(url.pathname),
-    handler: 'NetworkFirst',
-    options: {
-      cacheName: 'api-centro-mando',
-      networkTimeoutSeconds: 3
-    }
-  }
-];

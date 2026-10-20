@@ -1,32 +1,3 @@
-export type EstadoPermiso = 'granted' | 'denied' | 'prompt' | 'desconocido';
-
-export interface Evidencia {
-  id?: number;
-  propietarioTipo: 'perfil' | 'entrega' | 'asignatura';
-  propietarioId: string;
-  creadoEn: string;
-  imagen: Blob;
-}
-
-export async function estadoPermiso(nombre: PermissionName): Promise<EstadoPermiso> {
-  if (
-    !('permissions' in navigator) ||
-    typeof navigator.permissions === 'undefined' ||
-    typeof navigator.permissions.query !== 'function'
-  ) {
-    return 'desconocido';
-  }
-
-  try {
-    const permiso = await navigator.permissions.query({ name: nombre });
-    return permiso.state === 'granted' || permiso.state === 'denied' || permiso.state === 'prompt'
-      ? permiso.state
-      : 'desconocido';
-  } catch {
-    return 'desconocido';
-  }
-}
-
 export async function abrirCamara(facingMode = 'user'): Promise<MediaStream> {
   if (
     !('mediaDevices' in navigator) ||
