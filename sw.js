@@ -6,14 +6,11 @@ workbox.setConfig({
 
 const { precacheAndRoute, cleanupOutdatedCaches } = workbox.precaching;
 const { registerRoute } = workbox.routing;
-const { CacheFirst, NetworkFirst } = workbox.strategies;
+const { CacheFirst, NetworkOnly } = workbox.strategies;
 const { ExpirationPlugin } = workbox.expiration;
 const { clientsClaim } = workbox.core;
-const SYNC_TAG = 'sync-actividades-academicas';
-const DATABASE_NAME = 'centro-mando-db';
-const API_URL = new URL('/api/entregas', self.location.origin).href;
 
-precacheAndRoute([{"revision":"6d3e4cfb5ff74e008f442a4f650bd91f","url":"index.html"},{"revision":"98d82bd074051d3098d4fdf3effa272e","url":"assets/index-Cxs5tReo.css"},{"revision":"9d7b9b9f572ef5d37df7926acd403d68","url":"assets/index-DfA_m1V8.js"},{"revision":"9ed91d97049a884ccafed0a7a9aa1e96","url":"manifest.json"},{"revision":"e2270cb84e3511e3b8502e72dabc6f79","url":"icons/icon-512.png"},{"revision":"8ac8848cabc920612e0d9eaa1c0b9dc6","url":"icons/icon-192.png"},{"revision":"4a5a8c870b374dd6e76275c2d968e1ea","url":"lib/workbox-v7.4.1/workbox-sw.js"},{"revision":"317fc89483d1f033fd1a9f123546170c","url":"lib/workbox-v7.4.1/workbox-core.prod.js"},{"revision":"2b856c81714a9f5ff2f7187caac1fd00","url":"lib/workbox-v7.4.1/workbox-precaching.prod.js"},{"revision":"02c6cad79d72343ab97475f26c4d76ec","url":"lib/workbox-v7.4.1/workbox-routing.prod.js"},{"revision":"f24892c99eeb13fe411298ccf782b6b0","url":"lib/workbox-v7.4.1/workbox-strategies.prod.js"},{"revision":"9afc7d7e8fbce3cde88a719439947c5c","url":"lib/workbox-v7.4.1/workbox-expiration.prod.js"},{"revision":"4620a4e4197b51215e01fe55de7e8e68","url":"lib/workbox-v7.4.1/workbox-background-sync.prod.js"}]);
+precacheAndRoute([{"revision":"e638f4ed4bdc06decbf0c26649bb0a1c","url":"index.html"},{"revision":"f0e4d2b5c253742ebe5a5cb783939b80","url":"assets/index-BMPVg00A.css"},{"revision":"d5bf44822c2a3f3b705158ac438d4bf9","url":"assets/index-CeH6aUSE.js"},{"revision":"9ed91d97049a884ccafed0a7a9aa1e96","url":"manifest.json"},{"revision":"e2270cb84e3511e3b8502e72dabc6f79","url":"icons/icon-512.png"},{"revision":"8ac8848cabc920612e0d9eaa1c0b9dc6","url":"icons/icon-192.png"},{"revision":"4a5a8c870b374dd6e76275c2d968e1ea","url":"lib/workbox-v7.4.1/workbox-sw.js"},{"revision":"317fc89483d1f033fd1a9f123546170c","url":"lib/workbox-v7.4.1/workbox-core.prod.js"},{"revision":"2b856c81714a9f5ff2f7187caac1fd00","url":"lib/workbox-v7.4.1/workbox-precaching.prod.js"},{"revision":"02c6cad79d72343ab97475f26c4d76ec","url":"lib/workbox-v7.4.1/workbox-routing.prod.js"},{"revision":"f24892c99eeb13fe411298ccf782b6b0","url":"lib/workbox-v7.4.1/workbox-strategies.prod.js"},{"revision":"9afc7d7e8fbce3cde88a719439947c5c","url":"lib/workbox-v7.4.1/workbox-expiration.prod.js"},{"revision":"4620a4e4197b51215e01fe55de7e8e68","url":"lib/workbox-v7.4.1/workbox-background-sync.prod.js"}]);
 cleanupOutdatedCaches();
 clientsClaim();
 
@@ -29,88 +26,8 @@ registerRoute(
 registerRoute(
   ({ url, request }) => url.origin === self.location.origin &&
     request.method === 'GET' && url.pathname.includes('/api/'),
-  new NetworkFirst({ cacheName: 'api-centro-mando', networkTimeoutSeconds: 3 })
+  new NetworkOnly()
 );
-
-function abrirBaseDeDatos() {
-  return new Promise((resolve, reject) => {
-    if (!('indexedDB' in self) || typeof indexedDB === 'undefined') {
-      reject(new Error('IndexedDB no está disponible en este navegador.'));
-      return;
-    }
-    const request = indexedDB.open(DATABASE_NAME);
-    request.onsuccess = () => {
-      if (!request.result.objectStoreNames.contains('outbox')) {
-        request.result.close();
-        reject(new Error('La bandeja offline no está disponible en la base de datos.'));
-        return;
-      }
-      resolve(request.result);
-    };
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => reject(new Error('La base de datos está bloqueada por otra pestaña.'));
-  });
-}
-
-function leerCambiosPendientes(db) {
-  return new Promise((resolve, reject) => {
-    const request = db.transaction('outbox', 'readonly').objectStore('outbox').getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function quitarCambioPendiente(db, idCambio) {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('outbox', 'readwrite');
-    tx.objectStore('outbox').delete(idCambio);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error || new Error('No se pudo eliminar el cambio sincronizado.'));
-  });
-}
-
-async function sincronizarBandeja() {
-  const db = await abrirBaseDeDatos();
-  try {
-    const cambios = await leerCambiosPendientes(db);
-    for (const cambio of cambios) {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cambio)
-      });
-      let result;
-      try {
-        result = await response.json();
-      } catch {
-        result = undefined;
-      }
-
-      if (response.status !== 200 && response.status !== 201 && result?.duplicado !== true) {
-        throw new Error(`La API rechazó la sincronización (HTTP ${response.status}).`);
-      }
-      await quitarCambioPendiente(db, cambio.idCambio);
-    }
-
-    const ventanas = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    if (cambios.length > 0 && ventanas.length === 0) {
-      await self.registration.showNotification('Entregas sincronizadas', {
-        body: 'Tus cambios académicos pendientes se enviaron correctamente.',
-        tag: 'sincronizacion-entregas',
-        data: { url: self.registration.scope }
-      });
-    }
-  } finally {
-    db.close();
-  }
-}
-
-self.addEventListener('sync', event => {
-  if (event.tag === SYNC_TAG) {
-    event.waitUntil(sincronizarBandeja());
-  }
-});
 
 self.addEventListener('push', event => {
   event.waitUntil((async () => {
