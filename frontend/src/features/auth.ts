@@ -15,15 +15,24 @@ export function inicializarAutenticacion(): void {
   const username = document.getElementById('auth-username') as HTMLInputElement | null;
   const password = document.getElementById('auth-password') as HTMLInputElement | null;
   const status = document.getElementById('auth-status');
+  const sessionStatus = document.getElementById('auth-session-status');
   if (!button || !dialog || !form || !modeButton || !firstName || !lastName ||
-      !username || !password || !status) return;
+      !username || !password || !status || !sessionStatus) return;
 
   let registerMode = false;
 
   const updateButton = (): void => {
     const session = getAuthSession();
-    button.textContent = session ? `Conectado: ${session.username} · Cerrar sesión` : 'Conectar con el servidor';
+    button.textContent = session ? `Cerrar sesión (${session.username})` : 'Conectar con el servidor';
     button.setAttribute('aria-label', session ? `Cerrar sesión de ${session.username}` : 'Iniciar sesión');
+    sessionStatus.textContent = session
+      ? navigator.onLine
+        ? `Sesión guardada para ${session.username}. Se validará con el backend al sincronizar.`
+        : `Sesión local de ${session.username}. Puedes seguir usando los datos guardados; se sincronizarán al reconectarte.`
+      : navigator.onLine
+        ? 'Inicia sesión para sincronizar tus datos.'
+        : 'Modo sin conexión: puedes continuar con los datos guardados en este dispositivo.';
+    sessionStatus.classList.toggle('offline-session', !navigator.onLine);
   };
   const updateMode = (): void => {
     firstName.closest('.form-group')?.toggleAttribute('hidden', !registerMode);
@@ -35,15 +44,25 @@ export function inicializarAutenticacion(): void {
     if (submit) submit.textContent = registerMode ? 'Crear cuenta y conectar' : 'Iniciar sesión';
     modeButton.textContent = registerMode ? 'Ya tengo una cuenta' : 'Crear cuenta nueva';
   };
+  const openAuthDialog = (): void => {
+    status.textContent = navigator.onLine
+      ? ''
+      : 'No hay conexión para iniciar sesión. Puedes usar la app en modo local y conectarte después para autenticarte y sincronizar.';
+    dialog.showModal();
+  };
 
   button.addEventListener('click', () => {
     if (getAuthSession()) {
-      clearAuthSession();
-      status.textContent = 'Sesión cerrada. Tus datos locales siguen disponibles.';
+      try {
+        clearAuthSession();
+        updateButton();
+        sessionStatus.textContent = 'Sesión cerrada. Tus datos locales siguen disponibles.';
+      } catch (error) {
+        sessionStatus.textContent = error instanceof Error ? error.message : 'No se pudo cerrar la sesión.';
+      }
       return;
     }
-    status.textContent = '';
-    dialog.showModal();
+    openAuthDialog();
   });
   modeButton.addEventListener('click', () => {
     registerMode = !registerMode;
@@ -74,7 +93,7 @@ export function inicializarAutenticacion(): void {
         }
         dialog.close();
         password.value = '';
-        status.textContent = 'Conexión establecida. Se sincronizarán las funciones compatibles.';
+        updateButton();
       } catch (error) {
         status.textContent = error instanceof Error ? error.message : 'No se pudo conectar con el servidor.';
       } finally {
@@ -86,6 +105,9 @@ export function inicializarAutenticacion(): void {
     close.addEventListener('click', () => dialog.close());
   });
   window.addEventListener('auth-changed', updateButton);
+  window.addEventListener('online', updateButton);
+  window.addEventListener('offline', updateButton);
   updateMode();
   updateButton();
+  if (!getAuthSession()) openAuthDialog();
 }

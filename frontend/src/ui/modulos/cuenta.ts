@@ -2,8 +2,8 @@ export function renderizarDialogoCuenta(): string {
   return `
     <dialog id="auth-dialog" class="auth-dialog">
       <form id="auth-form" class="delivery-form">
-        <h2>Cuenta y sincronización</h2>
-        <p>Conecta tu cuenta para respaldar asignaturas, tareas, sesiones y metas en el servidor.</p>
+        <h2>Inicia sesión o crea tu cuenta</h2>
+        <p>El ingreso valida tu cuenta con el backend y requiere conexión. Sin internet puedes seguir usando los datos locales; se sincronizarán cuando vuelvas a conectarte.</p>
         <div class="form-group">
           <label for="auth-first-name">Nombre:</label>
           <input id="auth-first-name" class="form-control" maxlength="100" autocomplete="given-name" />

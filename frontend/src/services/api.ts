@@ -14,9 +14,17 @@ export interface AuthSession {
 }
 
 export function getAuthSession(): AuthSession | undefined {
-  const token = localStorage.getItem(TOKEN_KEY);
-  const username = localStorage.getItem(USERNAME_KEY);
-  return token && username ? { token, username } : undefined;
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const username = localStorage.getItem(USERNAME_KEY);
+    return token && username ? { token, username } : undefined;
+  } catch (error) {
+    throw new Error(
+      `No se pudo acceder al almacenamiento de sesión del navegador: ${
+        error instanceof Error ? error.message : 'almacenamiento no disponible.'
+      }`
+    );
+  }
 }
 
 export function isAuthenticated(): boolean {
@@ -24,14 +32,32 @@ export function isAuthenticated(): boolean {
 }
 
 function saveAuthSession(token: string, username: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USERNAME_KEY, username);
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(USERNAME_KEY, username);
+  } catch (error) {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USERNAME_KEY);
+    throw new Error(
+      `El backend autenticó la cuenta, pero no se pudo guardar la sesión para usarla en la PWA: ${
+        error instanceof Error ? error.message : 'almacenamiento no disponible.'
+      }`
+    );
+  }
   window.dispatchEvent(new Event('auth-changed'));
 }
 
 export function clearAuthSession(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USERNAME_KEY);
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USERNAME_KEY);
+  } catch (error) {
+    throw new Error(
+      `No se pudo borrar la sesión local: ${
+        error instanceof Error ? error.message : 'almacenamiento no disponible.'
+      }`
+    );
+  }
   window.dispatchEvent(new Event('auth-changed'));
 }
 
@@ -50,7 +76,19 @@ export async function apiRequest<T>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, { ...requestOptions, headers });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, { ...requestOptions, headers });
+  } catch (error) {
+    if (!navigator.onLine) {
+      throw new Error('No hay conexión. El inicio de sesión requiere internet; puedes seguir usando tus datos locales y sincronizar al reconectarte.');
+    }
+    throw new Error(
+      `No se pudo conectar con el backend: ${
+        error instanceof Error ? error.message : 'revisa la dirección de la API y que el servidor esté activo.'
+      }`
+    );
+  }
   if (!response.ok) {
     if (response.status === 401 && authenticated) clearAuthSession();
     let message = `Error del servidor (HTTP ${response.status}).`;

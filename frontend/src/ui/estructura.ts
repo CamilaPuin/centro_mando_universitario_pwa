@@ -13,6 +13,7 @@ export function renderizarEncabezado(fechaFormateada: string): string {
           <span>${fechaFormateada}</span>
         </div>
         <button id="auth-button" class="install-button" type="button">Conectar con el servidor</button>
+        <span id="auth-session-status" class="auth-session-status" role="status" aria-live="polite"></span>
         <button id="install-app" class="install-button" type="button" hidden>Instalar Centro de Mando</button>
         <span id="network-status" class="badge online">
           <span class="badge-dot"></span>
