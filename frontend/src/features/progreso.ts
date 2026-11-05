@@ -112,7 +112,7 @@ export function inicializarProgreso(databaseReady: Promise<IDBDatabase | undefin
         );
       } catch (error) {
         console.error('No se pudo cargar el resumen semanal del servidor:', error);
-        goalsStatus.textContent = `Mostrando resumen semanal local; no se cargó el remoto: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+        goalsStatus.textContent = `No se pudo actualizar el resumen semanal: ${error instanceof Error ? error.message : 'inténtalo de nuevo.'}`;
       }
     }
     const studyDays = new Set(sessions
@@ -147,7 +147,7 @@ export function inicializarProgreso(databaseReady: Promise<IDBDatabase | undefin
         );
       } catch (error) {
         console.error('No se pudo cargar el perfil de gamificación del servidor:', error);
-        goalsStatus.textContent = `Mostrando gamificación local; no se cargó el perfil remoto: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+        goalsStatus.textContent = 'No se pudo actualizar el resumen de logros.';
       }
     }
   }
@@ -195,12 +195,14 @@ export function inicializarProgreso(databaseReady: Promise<IDBDatabase | undefin
               })
             });
             await guardarMetas(db, { minutosSemanales, promedioDeseado, syncPending: false });
-            goalsStatus.textContent = 'Metas guardadas y sincronizadas.';
+            goalsStatus.textContent = 'Metas guardadas.';
           } catch (error) {
-            goalsStatus.textContent = `Metas guardadas localmente; no se sincronizaron: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+            goalsStatus.textContent = `Metas guardadas. Se volverán a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
           }
         } else {
-          goalsStatus.textContent = 'Metas guardadas localmente.';
+          goalsStatus.textContent = isAuthenticated()
+            ? 'Metas guardadas. Se sincronizarán automáticamente cuando vuelva la conexión.'
+            : 'Metas guardadas en este dispositivo.';
         }
         await update();
       } catch (error) {

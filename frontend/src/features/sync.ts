@@ -35,7 +35,8 @@ export function inicializarSincronizacion(
   const form = document.getElementById('delivery-form') as HTMLFormElement | null;
   const idInput = document.getElementById('delivery-id') as HTMLInputElement | null;
   const titleInput = document.getElementById('delivery-title-input') as HTMLInputElement | null;
-  const subjectInput = document.getElementById('delivery-subject-input') as HTMLInputElement | null;
+  const subjectInput = document.getElementById('delivery-subject-input') as HTMLSelectElement | null;
+  const customSubjectInput = document.getElementById('delivery-subject-custom') as HTMLInputElement | null;
   const dateInput = document.getElementById('delivery-date-input') as HTMLInputElement | null;
   const priorityInput = document.getElementById('delivery-priority-input') as HTMLSelectElement | null;
   const deliveryStatusInput = document.getElementById('delivery-status-input') as HTMLSelectElement | null;
@@ -47,7 +48,7 @@ export function inicializarSincronizacion(
   const list = document.getElementById('local-deliveries');
   const cancelButton = document.getElementById('delivery-cancel-edit') as HTMLButtonElement | null;
   const examWeekList = document.getElementById('exam-week-list');
-  if (!form || !idInput || !titleInput || !subjectInput || !dateInput || !priorityInput ||
+  if (!form || !idInput || !titleInput || !subjectInput || !customSubjectInput || !dateInput || !priorityInput ||
       !deliveryStatusInput || !categoryInput || !gradeInput || !gradeMaxInput ||
       !detailInput || !status || !list || !examWeekList) {
     return;
@@ -56,6 +57,7 @@ export function inicializarSincronizacion(
   const deliveryIdInput = idInput;
   const deliveryTitleInput = titleInput;
   const deliverySubjectInput = subjectInput;
+  const deliveryCustomSubjectInput = customSubjectInput;
   const deliveryDateInput = dateInput;
   const deliveryPriorityInput = priorityInput;
   const deliveryStatusSelect = deliveryStatusInput;
@@ -79,10 +81,62 @@ export function inicializarSincronizacion(
   let remoteRefresh: Promise<void> | undefined;
   let pendingSync: Promise<void> | undefined;
 
+  function nombreAsignaturaSeleccionada(): string {
+    return deliverySubjectInput.value === '__otra__'
+      ? deliveryCustomSubjectInput.value.trim()
+      : deliverySubjectInput.value.trim();
+  }
+
+  function actualizarCampoOtraAsignatura(): void {
+    const otraAsignatura = deliverySubjectInput.value === '__otra__';
+    deliveryCustomSubjectInput.hidden = !otraAsignatura;
+    deliveryCustomSubjectInput.required = otraAsignatura;
+  }
+
+  function seleccionarAsignatura(nombre: string): void {
+    const optionExists = [...deliverySubjectInput.options].some(option => option.value === nombre);
+    if (optionExists) {
+      deliverySubjectInput.value = nombre;
+      deliveryCustomSubjectInput.value = '';
+    } else if (nombre) {
+      deliverySubjectInput.value = '__otra__';
+      deliveryCustomSubjectInput.value = nombre;
+    } else {
+      deliverySubjectInput.value = '';
+      deliveryCustomSubjectInput.value = '';
+    }
+    actualizarCampoOtraAsignatura();
+  }
+
+  async function actualizarOpcionesAsignaturas(): Promise<void> {
+    const db = await databaseReady;
+    if (!db) return;
+    const selectedName = nombreAsignaturaSeleccionada();
+    const assignments = await listarAsignaturas(db);
+    deliverySubjectInput.replaceChildren(new Option('Selecciona una asignatura', ''));
+    for (const assignment of assignments) {
+      deliverySubjectInput.add(new Option(assignment.nombre, assignment.nombre));
+    }
+    deliverySubjectInput.add(new Option('Otra asignatura…', '__otra__'));
+    seleccionarAsignatura(selectedName);
+  }
+
+  deliverySubjectInput.addEventListener('change', () => {
+    actualizarCampoOtraAsignatura();
+    if (deliverySubjectInput.value === '__otra__') deliveryCustomSubjectInput.focus();
+  });
+
+  window.addEventListener('asignaturas-actualizadas', () => {
+    void actualizarOpcionesAsignaturas().catch(error => {
+      console.error('No se pudieron actualizar las asignaturas de la entrega:', error);
+      syncStatus.textContent = 'No se pudieron cargar las asignaturas guardadas.';
+    });
+  });
+
   function editarEntrega(entrega: EntregaAcademica): void {
     deliveryIdInput.value = String(entrega.id);
     deliveryTitleInput.value = entrega.titulo;
-    deliverySubjectInput.value = entrega.asignatura;
+    seleccionarAsignatura(entrega.asignatura);
     deliveryDateInput.value = entrega.fechaEntrega;
     deliveryPriorityInput.value = entrega.prioridad ?? 'media';
     deliveryStatusSelect.value = entrega.estado;
@@ -90,7 +144,7 @@ export function inicializarSincronizacion(
     deliveryGradeInput.value = entrega.calificacion === undefined ? '' : String(entrega.calificacion);
     deliveryGradeMaxInput.value = String(entrega.notaMaxima ?? 5);
     deliveryDetailInput.value = entrega.detalle;
-    deliveryForm.querySelector<HTMLButtonElement>('button[type="submit"]')!.textContent = 'Guardar cambios offline';
+    deliveryForm.querySelector<HTMLButtonElement>('button[type="submit"]')!.textContent = 'Guardar cambios';
     if (cancelButton) cancelButton.hidden = false;
     deliveryTitleInput.focus();
   }
@@ -532,7 +586,7 @@ export function inicializarSincronizacion(
     window.dispatchEvent(new Event('horario-actualizado'));
     window.dispatchEvent(new Event('entregas-actualizadas'));
     window.dispatchEvent(new Event('sesion-estudio-guardada'));
-    syncStatus.textContent = 'Datos actualizados desde el servidor.';
+    syncStatus.textContent = 'Tus datos están actualizados.';
   }
 
   function cargarDatosRemotos(db: IDBDatabase): Promise<void> {
@@ -545,7 +599,7 @@ export function inicializarSincronizacion(
 
   async function enviarCambiosPendientes(db: IDBDatabase): Promise<void> {
     if (!isAuthenticated()) {
-      syncStatus.textContent = 'Inicia sesión para sincronizar las entregas pendientes.';
+      syncStatus.textContent = 'Inicia sesión para sincronizar tus cambios entre dispositivos.';
       return;
     }
     const asignaturas = await listarAsignaturas(db);
@@ -556,7 +610,7 @@ export function inicializarSincronizacion(
         item.id === entrega.asignaturaId || item.nombre === entrega.asignatura
       );
       if (!asignatura?.backendId) {
-        throw new Error(`Conecta primero la asignatura "${entrega.asignatura}" con el servidor.`);
+        throw new Error(`No se encontró la asignatura "${entrega.asignatura}". Revisa tus materias e inténtalo de nuevo.`);
       }
       const taskType = entrega.categoria === 'examen'
         ? 'EXAM'
@@ -641,8 +695,8 @@ export function inicializarSincronizacion(
       await quitarCambioPendiente(db, cambio.idCambio);
     }
     syncStatus.textContent = cambios.length
-      ? `${cambios.length} cambio(s) sincronizado(s).`
-      : 'No hay cambios pendientes de sincronización.';
+      ? 'Tus cambios están actualizados en todos tus dispositivos.'
+      : 'Todo está actualizado.';
   }
 
   function sincronizarPendientes(db: IDBDatabase): Promise<void> {
@@ -658,18 +712,18 @@ export function inicializarSincronizacion(
     try {
       const db = await databaseReady;
       if (!db) return;
-      await sincronizarPendientes(db);
+      await cargarDatosRemotos(db);
     } catch (error) {
-      console.error('Error al enviar la bandeja de salida:', error);
+      console.error('Error al sincronizar los cambios pendientes:', error);
       syncStatus.textContent = error instanceof Error
-        ? `Cambios guardados en el dispositivo; se reintentará la sincronización: ${error.message}`
-        : 'Cambios guardados en el dispositivo; se reintentará la sincronización.';
+        ? `No se pudo completar la sincronización. Se volverá a intentar automáticamente: ${error.message}`
+        : 'No se pudo completar la sincronización. Se volverá a intentar automáticamente.';
     }
   }
 
   deliveryForm.addEventListener('submit', async event => {
     event.preventDefault();
-    syncStatus.textContent = 'Guardando en este dispositivo…';
+    syncStatus.textContent = 'Guardando entrega…';
     try {
       const db = await databaseReady;
       if (!db) throw new Error('IndexedDB no está disponible.');
@@ -697,7 +751,16 @@ export function inicializarSincronizacion(
         throw new Error('La calificación debe estar entre cero y la nota máxima.');
       }
       const asignaturas = await listarAsignaturas(db);
-      const asignatura = asignaturas.find(item => item.nombre === deliverySubjectInput.value.trim());
+      const nombreAsignatura = nombreAsignaturaSeleccionada();
+      if (!nombreAsignatura) throw new Error('Selecciona una asignatura o escribe su nombre.');
+      let asignatura = asignaturas.find(item =>
+        item.nombre.trim().toLocaleLowerCase() === nombreAsignatura.toLocaleLowerCase()
+      );
+      let nuevaAsignatura = false;
+      if (!asignatura) {
+        asignatura = await guardarAsignatura(db, { nombre: nombreAsignatura, syncPending: true });
+        nuevaAsignatura = true;
+      }
       const existente = id === undefined
         ? undefined
         : (await listarEntregas(db)).find(item => item.id === id);
@@ -707,7 +770,7 @@ export function inicializarSincronizacion(
         ...(existente?.evaluationBackendId === undefined ? {} : { evaluationBackendId: existente.evaluationBackendId }),
         ...(asignatura?.id === undefined ? {} : { asignaturaId: asignatura.id }),
         titulo: deliveryTitleInput.value.trim(),
-        asignatura: deliverySubjectInput.value.trim(),
+        asignatura: nombreAsignatura,
         fechaEntrega: deliveryDateInput.value,
         prioridad,
         categoria,
@@ -720,14 +783,18 @@ export function inicializarSincronizacion(
       actualizarTablero(await listarEntregas(db));
       window.dispatchEvent(new Event('entregas-actualizadas'));
       deliveryForm.reset();
+      actualizarCampoOtraAsignatura();
       deliveryIdInput.value = '';
-      deliveryForm.querySelector<HTMLButtonElement>('button[type="submit"]')!.textContent = 'Guardar offline y sincronizar';
+      deliveryForm.querySelector<HTMLButtonElement>('button[type="submit"]')!.textContent = 'Guardar entrega';
       if (cancelButton) cancelButton.hidden = true;
+      if (nuevaAsignatura) window.dispatchEvent(new Event('asignaturas-actualizadas'));
       if (isAuthenticated() && navigator.onLine) {
-        syncStatus.textContent = 'Guardado localmente; sincronizando con el servidor…';
+        syncStatus.textContent = 'Entrega guardada. Sincronizando tus cambios…';
         void vaciarBandejaEnLinea();
+      } else if (isAuthenticated()) {
+        syncStatus.textContent = 'Entrega guardada. Se sincronizará automáticamente cuando vuelva la conexión.';
       } else {
-        syncStatus.textContent = 'Guardado localmente. Inicia sesión y conéctate para sincronizarlo.';
+        syncStatus.textContent = 'Entrega guardada. Inicia sesión para sincronizar tus cambios entre dispositivos.';
       }
     } catch (error) {
       console.error('No se pudo guardar la entrega:', error);
@@ -739,32 +806,18 @@ export function inicializarSincronizacion(
 
   cancelButton?.addEventListener('click', () => {
     deliveryForm.reset();
+    actualizarCampoOtraAsignatura();
     deliveryIdInput.value = '';
-    deliveryForm.querySelector<HTMLButtonElement>('button[type="submit"]')!.textContent = 'Guardar offline y sincronizar';
+    deliveryForm.querySelector<HTMLButtonElement>('button[type="submit"]')!.textContent = 'Guardar entrega';
     cancelButton.hidden = true;
   });
 
   window.addEventListener('online', () => {
-    void databaseReady.then(db => {
-      if (!db || !isAuthenticated()) return;
-      return cargarDatosRemotos(db);
-    }).catch(error => {
-      console.error('No se pudieron sincronizar los datos al recuperar la conexión:', error);
-      syncStatus.textContent = error instanceof Error
-        ? `Sincronización pendiente: ${error.message}`
-        : 'No se pudieron sincronizar los datos al recuperar la conexión.';
-    });
+    void vaciarBandejaEnLinea();
   });
   window.addEventListener('auth-changed', () => {
     void databaseReady.then(db => {
-      if (db && isAuthenticated()) {
-        void cargarDatosRemotos(db).catch(error => {
-          console.error('No se pudieron cargar datos del servidor:', error);
-          syncStatus.textContent = error instanceof Error
-            ? `Sesión iniciada, pero no se cargaron los datos remotos: ${error.message}`
-            : 'Sesión iniciada, pero no se cargaron los datos remotos.';
-        });
-      }
+      if (db && isAuthenticated() && navigator.onLine) void vaciarBandejaEnLinea();
     });
   });
 
@@ -772,14 +825,15 @@ export function inicializarSincronizacion(
     if (!db) return;
     try {
       const entregas = await listarEntregas(db);
+      await actualizarOpcionesAsignaturas();
       entregas.forEach(mostrarEntrega);
       actualizarTablero(entregas);
       window.dispatchEvent(new Event('entregas-actualizadas'));
       const pendientes = await listarCambiosPendientes(db);
       if (pendientes.length) {
         syncStatus.textContent = isAuthenticated()
-          ? `${pendientes.length} cambio(s) esperando sincronización.`
-          : `${pendientes.length} cambio(s) local(es); inicia sesión para sincronizarlos.`;
+          ? 'Tus cambios pendientes se sincronizarán automáticamente.'
+          : 'Inicia sesión para sincronizar tus cambios entre dispositivos.';
       }
       if (isAuthenticated()) {
         await cargarDatosRemotos(db);

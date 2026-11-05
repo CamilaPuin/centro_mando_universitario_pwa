@@ -1,7 +1,19 @@
-import { interfazDispositivo } from '../devices/interfaz';
+import { renderizarEncabezado, renderizarNavegacion, renderizarPie } from './estructura';
+import { renderizarModuloAsignaturas } from './modulos/asignaturas';
+import { renderizarModuloCalendario } from './modulos/calendario';
+import { renderizarModuloDispositivo } from './modulos/dispositivo';
+import { renderizarModuloEntregas } from './modulos/entregas';
+import { renderizarModuloNotas } from './modulos/notas';
+import { renderizarModuloPomodoro } from './modulos/pomodoro';
+import { renderizarModuloProgreso } from './modulos/progreso';
+import { renderizarModuloResumen } from './modulos/resumen';
+import { renderizarDialogoCuenta } from './modulos/cuenta';
 
 export function renderizarAplicacion(): void {
-  const app = document.getElementById('app')!;
+  const app = document.getElementById('app');
+  if (!app) {
+    throw new Error('No se encontró el contenedor raíz #app.');
+  }
 
   const fechaHoy = new Date().toLocaleDateString('es-ES', {
     weekday: 'long',
@@ -10,38 +22,23 @@ export function renderizarAplicacion(): void {
     day: 'numeric'
   });
   const fechaFormateada = fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1);
+  const modulos = [
+    renderizarModuloResumen(),
+    renderizarModuloAsignaturas(),
+    renderizarModuloEntregas(),
+    renderizarModuloCalendario(),
+    renderizarModuloPomodoro(),
+    renderizarModuloNotas(),
+    renderizarModuloProgreso(),
+    renderizarModuloDispositivo()
+  ];
 
   app.innerHTML = `
     <div class="app-container">
-      <header class="top-nav">
-        <div class="brand-section">
-          <img src="icons/icon-192.png" alt="Centro de Mando Universitario" class="brand-logo" />
-          <div>
-            <div class="brand-title">Centro de Mando Universitario</div>
-            <div class="brand-subtitle">Gestión académica personal</div>
-          </div>
-        </div>
-        <div class="nav-meta">
-          <div class="date-pill">
-            <span>${fechaFormateada}</span>
-          </div>
-          <button id="auth-button" class="install-button" type="button">Conectar con el servidor</button>
-          <button id="install-app" class="install-button" type="button" hidden>Instalar Centro de Mando</button>
-          <span id="network-status" class="badge online">
-            <span class="badge-dot"></span>
-            <span>En línea</span>
-          </span>
-        </div>
-      </header>
-
-      <div id="offline-banner" class="offline-banner" role="status" aria-live="polite" hidden>
-        Sin conexión: mostrando datos guardados en caché
-      </div>
-      <p id="ios-install-help" class="ios-install-help" role="note" hidden>
-        Para instalar en iOS: toca Compartir ➔ Añadir a la pantalla de inicio
-      </p>
-
+      ${renderizarEncabezado(fechaFormateada)}
       <main id="main-content">
+        ${renderizarNavegacion()}
+        ${modulos.join('')}
         <nav class="nav-tabs" aria-label="Secciones del Centro de Mando">
           <button class="tab-btn active" data-tab="tab-resumen">Resumen del Día</button>
           <button class="tab-btn" data-tab="tab-asignaturas">Asignaturas y Horario</button>
@@ -385,40 +382,8 @@ export function renderizarAplicacion(): void {
       </section>
 
       </main>
-
-      <dialog id="auth-dialog" class="auth-dialog">
-        <form id="auth-form" class="delivery-form">
-          <h2>Cuenta y sincronización</h2>
-          <p>Conecta tu cuenta para respaldar asignaturas, tareas, sesiones y metas en el servidor.</p>
-          <div class="form-group">
-            <label for="auth-first-name">Nombre:</label>
-            <input id="auth-first-name" class="form-control" maxlength="100" autocomplete="given-name" />
-          </div>
-          <div class="form-group">
-            <label for="auth-last-name">Apellido:</label>
-            <input id="auth-last-name" class="form-control" maxlength="100" autocomplete="family-name" />
-          </div>
-          <div class="form-group">
-            <label for="auth-username">Usuario:</label>
-            <input id="auth-username" class="form-control" maxlength="50" autocomplete="username" required />
-          </div>
-          <div class="form-group">
-            <label for="auth-password">Contraseña:</label>
-            <input id="auth-password" class="form-control" type="password" minlength="8" maxlength="100" autocomplete="current-password" required />
-          </div>
-          <p id="auth-status" class="device-status" role="status" aria-live="polite"></p>
-          <div class="profile-actions">
-            <button class="btn btn-save" type="submit">Iniciar sesión</button>
-            <button id="auth-mode-toggle" class="btn btn-load" type="button">Crear cuenta nueva</button>
-            <button class="btn btn-load" type="button" data-close-auth>Cerrar</button>
-          </div>
-        </form>
-      </dialog>
-
-      <footer class="app-footer">
-        Centro de Mando Universitario Personal • PWA de Gestión Académica • 2026
-      </footer>
+      ${renderizarDialogoCuenta()}
+      ${renderizarPie()}
     </div>
   `;
-
 }

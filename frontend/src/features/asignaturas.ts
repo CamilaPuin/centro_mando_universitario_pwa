@@ -88,11 +88,16 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
     } else {
       selectClassSubject.disabled = false;
       classSubmitButton.disabled = false;
+      const placeholder = new Option('Selecciona una asignatura', '', true, true);
+      placeholder.disabled = true;
+      selectClassSubject.add(placeholder);
       for (const asignatura of asignaturas) {
         selectClassSubject.add(new Option(asignatura.nombre, String(asignatura.id)));
       }
       if (asignaturas.some(asignatura => String(asignatura.id) === selectedId)) {
         selectClassSubject.value = selectedId;
+      } else {
+        selectClassSubject.value = '';
       }
     }
 
@@ -153,7 +158,7 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
               const db = await databaseReady;
               if (!db || asignatura.id === undefined) throw new Error('No se pudo abrir el almacenamiento local.');
               if (asignatura.backendId && (!isAuthenticated() || !navigator.onLine)) {
-                throw new Error('Conéctate e inicia sesión para eliminar una asignatura sincronizada.');
+                throw new Error('Inicia sesión y recupera la conexión antes de eliminar esta asignatura sincronizada.');
               }
               if (isAuthenticated() && navigator.onLine && asignatura.backendId) {
                 await apiRequest<void>(`/subjects/${asignatura.backendId}`, { method: 'DELETE' });
@@ -215,7 +220,7 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
               const db = await databaseReady;
               if (!db || clase.id === undefined) throw new Error('No se pudo abrir el almacenamiento local.');
               if (clase.backendId && (!isAuthenticated() || !navigator.onLine)) {
-                throw new Error('Conéctate e inicia sesión para eliminar una clase sincronizada.');
+                throw new Error('Inicia sesión y recupera la conexión antes de eliminar esta clase sincronizada.');
               }
               if (isAuthenticated() && navigator.onLine && clase.backendId) {
                 await apiRequest<void>(`/calendar/class-schedules/${clase.backendId}`, { method: 'DELETE' });
@@ -280,12 +285,14 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
                 body: JSON.stringify(payload)
               });
           await guardarAsignatura(db, { ...guardada, backendId: response.id, syncPending: false });
-          subjectFeedback.textContent = 'Asignatura guardada y sincronizada.';
+          subjectFeedback.textContent = 'Asignatura guardada.';
         } catch (error) {
-          subjectFeedback.textContent = `Asignatura guardada localmente; no se sincronizó: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+          subjectFeedback.textContent = `Asignatura guardada. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
         }
       } else {
-        subjectFeedback.textContent = 'Asignatura guardada localmente.';
+        subjectFeedback.textContent = isAuthenticated()
+          ? 'Asignatura guardada. Se sincronizará automáticamente cuando vuelva la conexión.'
+          : 'Asignatura guardada en este dispositivo.';
       }
       resetSubjectForm();
       await actualizar();
@@ -339,7 +346,7 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
       });
       if (isAuthenticated() && navigator.onLine) {
         if (!asignaturaSeleccionada.backendId) {
-          classFeedback.textContent = 'Clase guardada localmente; sincroniza primero la asignatura.';
+          classFeedback.textContent = 'Horario guardado. Se sincronizará junto con la asignatura al recuperar la conexión.';
         } else {
           try {
             const payload = {
@@ -359,13 +366,15 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
                   body: JSON.stringify(payload)
                 });
             await guardarClaseHorario(db, { ...claseGuardada, backendId: response.id, syncPending: false });
-            classFeedback.textContent = 'Horario guardado y sincronizado.';
+            classFeedback.textContent = 'Horario guardado.';
           } catch (error) {
-            classFeedback.textContent = `Clase guardada localmente; no se sincronizó: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+            classFeedback.textContent = `Horario guardado. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
           }
         }
       } else {
-        classFeedback.textContent = 'Horario guardado localmente.';
+        classFeedback.textContent = isAuthenticated()
+          ? 'Horario guardado. Se sincronizará automáticamente cuando vuelva la conexión.'
+          : 'Horario guardado en este dispositivo.';
       }
       resetClassForm();
       await actualizar();

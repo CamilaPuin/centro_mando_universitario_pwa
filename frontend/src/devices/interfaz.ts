@@ -2,17 +2,17 @@ export const interfazDispositivo = `
   <div class="device-tools">
     <section class="dashboard-panel profile-panel" aria-labelledby="profile-title">
       <h2 id="profile-title" class="panel-title">Tu perfil</h2>
-      <p class="device-help">Tus datos se guardan localmente. Al conectar con internet podrás habilitar su sincronización con tu cuenta.</p>
+      <p class="device-help">Tu perfil se guarda en este dispositivo.</p>
       <div class="profile-editor">
         <img id="profile-photo-preview" class="profile-photo-preview" alt="Foto de perfil" hidden />
         <form id="profile-form" class="delivery-form">
           <div class="form-group">
-            <label for="profile-name">Nombre:</label>
-            <input id="profile-name" class="form-control" required maxlength="100" autocomplete="name" />
+            <label for="profile-name">Nombre <span class="required-mark" aria-hidden="true">*</span></label>
+            <input id="profile-name" class="form-control" required maxlength="100" autocomplete="name" placeholder="Ej. Camila Puin" />
           </div>
           <div class="form-group">
-            <label for="profile-username">Nombre de usuario:</label>
-            <input id="profile-username" class="form-control" required maxlength="40" autocomplete="username" />
+            <label for="profile-username">Nombre de usuario <span class="required-mark" aria-hidden="true">*</span></label>
+            <input id="profile-username" class="form-control" required maxlength="40" autocomplete="username" placeholder="Ej. camila.puin" />
           </div>
           <div class="profile-actions">
             <button class="btn btn-save" type="submit">Guardar perfil</button>
@@ -27,7 +27,7 @@ export const interfazDispositivo = `
 
     <section class="dashboard-panel" aria-labelledby="reminders-title">
       <h2 id="reminders-title" class="panel-title">Recordatorios de estudio</h2>
-      <p class="device-help">Te avisaremos sobre fechas límite y clases próximas. Los avisos locales funcionan con las fechas de tu calendario mientras la app esté activa; las notificaciones Push requieren configurar el backend.</p>
+      <p class="device-help">Te avisaremos sobre fechas límite y clases próximas. Los recordatorios de este dispositivo funcionan mientras la app esté activa; las notificaciones de tu cuenta requieren habilitar las notificaciones push.</p>
       <button id="btn-enable-notifications" class="btn btn-save" type="button">Activar recordatorios</button>
       <p id="notification-status" class="device-status" role="status" aria-live="polite">No se solicitará permiso hasta que pulses el botón.</p>
     </section>

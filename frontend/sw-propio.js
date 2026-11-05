@@ -4,8 +4,8 @@ workbox.setConfig({
   modulePathPrefix: new URL('./lib/workbox-v7.4.1/', self.registration.scope).href
 });
 
-const { precacheAndRoute, cleanupOutdatedCaches } = workbox.precaching;
-const { registerRoute } = workbox.routing;
+const { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } = workbox.precaching;
+const { registerRoute, NavigationRoute } = workbox.routing;
 const { CacheFirst, NetworkOnly } = workbox.strategies;
 const { ExpirationPlugin } = workbox.expiration;
 const { clientsClaim } = workbox.core;
@@ -13,6 +13,9 @@ const { clientsClaim } = workbox.core;
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
 clientsClaim();
+
+const appShellUrl = new URL('index.html', self.registration.scope).pathname;
+registerRoute(new NavigationRoute(createHandlerBoundToURL(appShellUrl)));
 
 registerRoute(
   ({ url }) => url.origin === self.location.origin &&

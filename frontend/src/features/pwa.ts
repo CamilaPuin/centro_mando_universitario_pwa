@@ -17,7 +17,7 @@ export function inicializarPwa(): void {
       if (offlineBanner) offlineBanner.hidden = true;
     } else {
       badge.className = 'badge offline';
-      badge.innerHTML = `<span class="badge-dot"></span><span>Sin conexión (Offline)</span>`;
+      badge.innerHTML = `<span class="badge-dot"></span><span>Sin conexión</span>`;
       if (offlineBanner) offlineBanner.hidden = false;
     }
   }

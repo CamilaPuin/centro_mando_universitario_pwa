@@ -12,38 +12,58 @@ export function inicializarAutenticacion(): void {
   const modeButton = document.getElementById('auth-mode-toggle') as HTMLButtonElement | null;
   const firstName = document.getElementById('auth-first-name') as HTMLInputElement | null;
   const lastName = document.getElementById('auth-last-name') as HTMLInputElement | null;
+  const firstNameRequired = document.getElementById('auth-first-name-required');
+  const lastNameRequired = document.getElementById('auth-last-name-required');
   const username = document.getElementById('auth-username') as HTMLInputElement | null;
   const password = document.getElementById('auth-password') as HTMLInputElement | null;
   const status = document.getElementById('auth-status');
+  const sessionStatus = document.getElementById('auth-session-status');
   if (!button || !dialog || !form || !modeButton || !firstName || !lastName ||
+      !firstNameRequired || !lastNameRequired || !sessionStatus ||
       !username || !password || !status) return;
 
   let registerMode = false;
 
   const updateButton = (): void => {
     const session = getAuthSession();
-    button.textContent = session ? `Conectado: ${session.username} · Cerrar sesión` : 'Conectar con el servidor';
+    button.textContent = session ? 'Cerrar sesión' : 'Iniciar sesión / Crear cuenta';
     button.setAttribute('aria-label', session ? `Cerrar sesión de ${session.username}` : 'Iniciar sesión');
+    sessionStatus.textContent = session
+      ? navigator.onLine
+        ? `Sesión guardada para ${session.username}. Se validará con el backend al sincronizar.`
+        : `Sesión local de ${session.username}. Puedes seguir usando los datos guardados; se sincronizarán al reconectarte.`
+      : navigator.onLine
+        ? 'Inicia sesión para sincronizar tus datos.'
+        : 'Modo sin conexión: puedes continuar con los datos guardados en este dispositivo.';
+    sessionStatus.classList.toggle('offline-session', !navigator.onLine);
   };
   const updateMode = (): void => {
     firstName.closest('.form-group')?.toggleAttribute('hidden', !registerMode);
     lastName.closest('.form-group')?.toggleAttribute('hidden', !registerMode);
     firstName.required = registerMode;
     lastName.required = registerMode;
+    firstNameRequired.hidden = !registerMode;
+    lastNameRequired.hidden = !registerMode;
     password.autocomplete = registerMode ? 'new-password' : 'current-password';
     const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
-    if (submit) submit.textContent = registerMode ? 'Crear cuenta y conectar' : 'Iniciar sesión';
+    if (submit) submit.textContent = registerMode ? 'Crear cuenta' : 'Iniciar sesión';
     modeButton.textContent = registerMode ? 'Ya tengo una cuenta' : 'Crear cuenta nueva';
+  };
+  const openAuthDialog = (): void => {
+    status.textContent = navigator.onLine
+      ? ''
+      : 'No hay conexión para iniciar sesión. Puedes usar la app en modo local y conectarte después para autenticarte y sincronizar.';
+    dialog.showModal();
   };
 
   button.addEventListener('click', () => {
+    window.dispatchEvent(new Event('close-header-menus'));
     if (getAuthSession()) {
       clearAuthSession();
-      status.textContent = 'Sesión cerrada. Tus datos locales siguen disponibles.';
+      status.textContent = 'Sesión cerrada. Puedes seguir usando la app en este dispositivo.';
       return;
     }
-    status.textContent = '';
-    dialog.showModal();
+    openAuthDialog();
   });
   modeButton.addEventListener('click', () => {
     registerMode = !registerMode;
@@ -74,9 +94,9 @@ export function inicializarAutenticacion(): void {
         }
         dialog.close();
         password.value = '';
-        status.textContent = 'Conexión establecida. Se sincronizarán las funciones compatibles.';
+        status.textContent = 'Sesión iniciada. Tus cambios se sincronizarán automáticamente.';
       } catch (error) {
-        status.textContent = error instanceof Error ? error.message : 'No se pudo conectar con el servidor.';
+        status.textContent = error instanceof Error ? error.message : 'No se pudo iniciar sesión.';
       } finally {
         if (submit) submit.disabled = false;
       }
@@ -86,6 +106,8 @@ export function inicializarAutenticacion(): void {
     close.addEventListener('click', () => dialog.close());
   });
   window.addEventListener('auth-changed', updateButton);
+  window.addEventListener('online', updateButton);
+  window.addEventListener('offline', updateButton);
   updateMode();
   updateButton();
 }
