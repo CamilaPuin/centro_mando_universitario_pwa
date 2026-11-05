@@ -20,6 +20,8 @@ test-results
 .env.*
 .env.example
 **/.env.example
+!.env.example
+!**/.env.example
 
 # Workbox runtime libraries are copied from node_modules during the frontend build
 frontend/public/lib/
