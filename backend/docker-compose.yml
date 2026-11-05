@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "${API_HOST_PORT:-8080}:8080"
+      - "${API_HOST_IP:-127.0.0.1}:${API_HOST_PORT:-8080}:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-centro_mando}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-centro_mando}
@@ -21,7 +21,7 @@ services:
   db:
     image: postgres:15-alpine
     ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
+      - "${POSTGRES_HOST_IP:-127.0.0.1}:${POSTGRES_HOST_PORT:-5432}:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-centro_mando}
       POSTGRES_USER: ${POSTGRES_USER:-centro_mando}
@@ -39,7 +39,7 @@ services:
   adminer:
     image: adminer:latest
     ports:
-      - "${ADMINER_HOST_PORT:-8081}:8080"
+      - "${ADMINER_HOST_IP:-127.0.0.1}:${ADMINER_HOST_PORT:-8081}:8080"
     depends_on:
       - db
     networks:

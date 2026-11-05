@@ -52,7 +52,7 @@ CREATE TABLE study_sessions (
     CONSTRAINT fk_session_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE SET NULL
 );
 
--- Indexes for frequent queries
+
 CREATE INDEX idx_subject_user ON subjects(user_id);
 CREATE INDEX idx_evaluation_subject ON evaluations(subject_id);
 CREATE INDEX idx_task_subject ON tasks(subject_id);
