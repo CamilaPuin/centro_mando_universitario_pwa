@@ -3,9 +3,16 @@ export function renderizarModuloResumen(): string {
     <section id="tab-resumen" class="tab-view active">
       <div class="hero-banner">
         <div class="hero-header">
-          <span class="hero-badge">Centro de Control Académico</span>
-          <h1 class="hero-title">Tu día, con prioridades claras</h1>
-          <p class="hero-subtitle">Un resumen basado en tus entregas guardadas en este dispositivo. Las prioridades se calculan según la fecha límite y la importancia que asignaste.</p>
+          <div class="hero-header">
+            <div>
+              <h1 class="hero-title">Así va tu día</h1>
+              <p class="hero-subtitle">Clases, entregas y tiempo de estudio.</p>
+            </div>
+            <button class="hero-action" type="button" data-tab="tab-entregas" data-focus="delivery-title-input">
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none"><path d="M10 4v12m6-6H4" /></svg>
+              Nueva entrega
+            </button>
+          </div>
         </div>
 
         <div class="metrics-row" aria-live="polite">

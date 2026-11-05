@@ -19,13 +19,14 @@ export function inicializarAutenticacion(): void {
   const status = document.getElementById('auth-status');
   const sessionStatus = document.getElementById('auth-session-status');
   if (!button || !dialog || !form || !modeButton || !firstName || !lastName ||
+      !firstNameRequired || !lastNameRequired || !sessionStatus ||
       !username || !password || !status) return;
 
   let registerMode = false;
 
   const updateButton = (): void => {
     const session = getAuthSession();
-    button.textContent = session ? `Conectado: ${session.username} · Cerrar sesión` : 'Conectar con el servidor';
+    button.textContent = session ? 'Cerrar sesión' : 'Iniciar sesión / Crear cuenta';
     button.setAttribute('aria-label', session ? `Cerrar sesión de ${session.username}` : 'Iniciar sesión');
     sessionStatus.textContent = session
       ? navigator.onLine
@@ -59,7 +60,7 @@ export function inicializarAutenticacion(): void {
     window.dispatchEvent(new Event('close-header-menus'));
     if (getAuthSession()) {
       clearAuthSession();
-      status.textContent = 'Sesión cerrada. Tus datos locales siguen disponibles.';
+      status.textContent = 'Sesión cerrada. Puedes seguir usando la app en este dispositivo.';
       return;
     }
     openAuthDialog();
@@ -93,7 +94,7 @@ export function inicializarAutenticacion(): void {
         }
         dialog.close();
         password.value = '';
-        status.textContent = 'Conexión establecida. Se sincronizarán las funciones compatibles.';
+        status.textContent = 'Sesión iniciada. Tus cambios se sincronizarán automáticamente.';
       } catch (error) {
         status.textContent = error instanceof Error ? error.message : 'No se pudo iniciar sesión.';
       } finally {
@@ -109,5 +110,4 @@ export function inicializarAutenticacion(): void {
   window.addEventListener('offline', updateButton);
   updateMode();
   updateButton();
-  if (!getAuthSession()) openAuthDialog();
 }

@@ -4,12 +4,12 @@ export function renderizarModuloAsignaturas(): string {
       <div class="dashboard-grid">
         <div class="dashboard-panel">
           <h2 class="panel-title">Mis asignaturas</h2>
-          <p class="device-help">Se guardan localmente en este dispositivo y estarán disponibles sin conexión.</p>
+          <p class="device-help">Administra tus materias y úsalas en horarios, apuntes y entregas.</p>
           <form id="subject-form" class="delivery-form">
             <input id="subject-id" type="hidden" />
             <div class="form-group">
-              <label for="subject-name">Nombre de la asignatura:</label>
-              <input id="subject-name" class="form-control" required maxlength="120" />
+              <label for="subject-name">Nombre de la asignatura <span class="required-mark" aria-hidden="true">*</span></label>
+              <input id="subject-name" class="form-control" required maxlength="120" placeholder="Ej. Cálculo I" />
             </div>
             <div class="profile-actions">
               <button class="btn btn-save" type="submit">Agregar asignatura</button>
@@ -26,11 +26,13 @@ export function renderizarModuloAsignaturas(): string {
           <form id="class-form" class="delivery-form">
             <input id="class-id" type="hidden" />
             <div class="form-group">
-              <label for="class-subject">Asignatura:</label>
-              <select id="class-subject" class="form-control" required></select>
+              <label for="class-subject">Asignatura <span class="required-mark" aria-hidden="true">*</span></label>
+              <select id="class-subject" class="form-control" required>
+                <option value="" selected disabled>Selecciona una asignatura</option>
+              </select>
             </div>
             <div class="form-group">
-              <label for="class-weekday">Día:</label>
+              <label for="class-weekday">Día <span class="required-mark" aria-hidden="true">*</span></label>
               <select id="class-weekday" class="form-control" required>
                 <option value="1">Lunes</option>
                 <option value="2">Martes</option>
@@ -42,16 +44,16 @@ export function renderizarModuloAsignaturas(): string {
               </select>
             </div>
             <div class="form-group">
-              <label for="class-start">Hora de inicio:</label>
+              <label for="class-start">Hora de inicio <span class="required-mark" aria-hidden="true">*</span></label>
               <input id="class-start" class="form-control" type="time" required />
             </div>
             <div class="form-group">
-              <label for="class-end">Hora de fin:</label>
+              <label for="class-end">Hora de fin <span class="required-mark" aria-hidden="true">*</span></label>
               <input id="class-end" class="form-control" type="time" required />
             </div>
             <div class="form-group">
-              <label for="class-location">Aula o ubicación (opcional):</label>
-              <input id="class-location" class="form-control" maxlength="120" />
+              <label for="class-location">Aula o ubicación</label>
+              <input id="class-location" class="form-control" maxlength="120" placeholder="Ej. Bloque 3, aula 204" />
             </div>
             <div class="profile-actions">
               <button id="class-submit" class="btn btn-save" type="submit">Agregar al horario</button>

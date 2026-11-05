@@ -3,17 +3,17 @@ export function renderizarModuloNotas(): string {
     <section id="tab-notas" class="tab-view">
       <div class="crypto-wrapper">
         <h2>Bitácora rápida por asignatura</h2>
-        <p class="subtitle">Guarda recordatorios y apuntes breves junto a cada materia. Se almacenan en este dispositivo y puedes editarlos después.</p>
+        <p class="subtitle">Guarda recordatorios y apuntes breves junto a cada materia. Puedes editarlos después.</p>
         <form id="note-form" class="delivery-form">
           <input id="note-id" type="hidden" />
           <div class="form-group">
-            <label for="note-subject">Asignatura:</label>
+            <label for="note-subject">Asignatura <span class="required-mark" aria-hidden="true">*</span></label>
             <select id="note-subject" class="form-control" required>
               <option value="" disabled selected>Selecciona una asignatura</option>
             </select>
           </div>
           <div class="form-group">
-            <label for="note-content">Apunte:</label>
+            <label for="note-content">Apunte <span class="required-mark" aria-hidden="true">*</span></label>
             <textarea id="note-content" class="form-control" required maxlength="4000" placeholder="Ej. Repasar integración por partes antes del jueves."></textarea>
           </div>
           <div class="profile-actions">
