@@ -12,18 +12,20 @@ export function inicializarAutenticacion(): void {
   const modeButton = document.getElementById('auth-mode-toggle') as HTMLButtonElement | null;
   const firstName = document.getElementById('auth-first-name') as HTMLInputElement | null;
   const lastName = document.getElementById('auth-last-name') as HTMLInputElement | null;
+  const firstNameRequired = document.getElementById('auth-first-name-required');
+  const lastNameRequired = document.getElementById('auth-last-name-required');
   const username = document.getElementById('auth-username') as HTMLInputElement | null;
   const password = document.getElementById('auth-password') as HTMLInputElement | null;
   const status = document.getElementById('auth-status');
   const sessionStatus = document.getElementById('auth-session-status');
   if (!button || !dialog || !form || !modeButton || !firstName || !lastName ||
-      !username || !password || !status || !sessionStatus) return;
+      !username || !password || !status) return;
 
   let registerMode = false;
 
   const updateButton = (): void => {
     const session = getAuthSession();
-    button.textContent = session ? `Cerrar sesión (${session.username})` : 'Conectar con el servidor';
+    button.textContent = session ? `Conectado: ${session.username} · Cerrar sesión` : 'Conectar con el servidor';
     button.setAttribute('aria-label', session ? `Cerrar sesión de ${session.username}` : 'Iniciar sesión');
     sessionStatus.textContent = session
       ? navigator.onLine
@@ -39,9 +41,11 @@ export function inicializarAutenticacion(): void {
     lastName.closest('.form-group')?.toggleAttribute('hidden', !registerMode);
     firstName.required = registerMode;
     lastName.required = registerMode;
+    firstNameRequired.hidden = !registerMode;
+    lastNameRequired.hidden = !registerMode;
     password.autocomplete = registerMode ? 'new-password' : 'current-password';
     const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
-    if (submit) submit.textContent = registerMode ? 'Crear cuenta y conectar' : 'Iniciar sesión';
+    if (submit) submit.textContent = registerMode ? 'Crear cuenta' : 'Iniciar sesión';
     modeButton.textContent = registerMode ? 'Ya tengo una cuenta' : 'Crear cuenta nueva';
   };
   const openAuthDialog = (): void => {
@@ -52,14 +56,10 @@ export function inicializarAutenticacion(): void {
   };
 
   button.addEventListener('click', () => {
+    window.dispatchEvent(new Event('close-header-menus'));
     if (getAuthSession()) {
-      try {
-        clearAuthSession();
-        updateButton();
-        sessionStatus.textContent = 'Sesión cerrada. Tus datos locales siguen disponibles.';
-      } catch (error) {
-        sessionStatus.textContent = error instanceof Error ? error.message : 'No se pudo cerrar la sesión.';
-      }
+      clearAuthSession();
+      status.textContent = 'Sesión cerrada. Tus datos locales siguen disponibles.';
       return;
     }
     openAuthDialog();
@@ -93,9 +93,9 @@ export function inicializarAutenticacion(): void {
         }
         dialog.close();
         password.value = '';
-        updateButton();
+        status.textContent = 'Conexión establecida. Se sincronizarán las funciones compatibles.';
       } catch (error) {
-        status.textContent = error instanceof Error ? error.message : 'No se pudo conectar con el servidor.';
+        status.textContent = error instanceof Error ? error.message : 'No se pudo iniciar sesión.';
       } finally {
         if (submit) submit.disabled = false;
       }

@@ -81,7 +81,7 @@ export function inicializarNotas(databaseReady: Promise<IDBDatabase | undefined>
             const database = await databaseReady;
             if (!database || note.id === undefined) throw new Error('No se pudo acceder al apunte.');
             if (note.backendId && (!isAuthenticated() || !navigator.onLine)) {
-              throw new Error('Conéctate e inicia sesión para eliminar un apunte sincronizado.');
+              throw new Error('Inicia sesión y recupera la conexión antes de eliminar este apunte sincronizado.');
             }
             if (isAuthenticated() && navigator.onLine && note.backendId) {
               await apiRequest<void>(`/subjects/notes/${note.backendId}`, { method: 'DELETE' });
@@ -136,12 +136,14 @@ export function inicializarNotas(databaseReady: Promise<IDBDatabase | undefined>
               await apiRequest<void>(`/subjects/notes/${existing.backendId}`, { method: 'DELETE' });
             }
             await guardarApunte(db, { ...saved, backendId: remote.id, syncPending: false });
-            noteStatus.textContent = 'Apunte guardado y sincronizado.';
+            noteStatus.textContent = 'Apunte guardado.';
           } catch (error) {
-            noteStatus.textContent = `Apunte guardado localmente; no se sincronizó: ${error instanceof Error ? error.message : 'error de servidor.'}`;
+            noteStatus.textContent = `Apunte guardado. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
           }
         } else {
-          noteStatus.textContent = 'Apunte guardado localmente.';
+          noteStatus.textContent = isAuthenticated()
+            ? 'Apunte guardado. Se sincronizará automáticamente cuando vuelva la conexión.'
+            : 'Apunte guardado en este dispositivo.';
         }
         await renderNotes();
       } catch (error) {

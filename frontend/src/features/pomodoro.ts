@@ -103,7 +103,7 @@ export function inicializarPomodoro(databaseReady: Promise<IDBDatabase | undefin
         const assignments = await listarAsignaturas(db);
         const selectedSubject = assignments.find(item => item.nombre === (activeSubject || subject.value));
         if (selectedSubject && !selectedSubject.backendId) {
-          timerStatus.textContent = `Sesión guardada localmente; sincroniza primero ${selectedSubject.nombre}.`;
+          timerStatus.textContent = `Sesión guardada. Se sincronizará junto con ${selectedSubject.nombre} al recuperar la conexión.`;
         } else {
           const sessionDate = new Date(inicio);
           const dateValue = `${sessionDate.getFullYear()}-${String(sessionDate.getMonth() + 1).padStart(2, '0')}-${String(sessionDate.getDate()).padStart(2, '0')}T${String(sessionDate.getHours()).padStart(2, '0')}:${String(sessionDate.getMinutes()).padStart(2, '0')}:${String(sessionDate.getSeconds()).padStart(2, '0')}`;
@@ -127,7 +127,7 @@ export function inicializarPomodoro(databaseReady: Promise<IDBDatabase | undefin
             transaction.onerror = () => reject(transaction.error);
             transaction.onabort = () => reject(transaction.error ?? new Error('No se pudo actualizar la copia de la sesión.'));
           });
-          timerStatus.textContent = `Sesión registrada y sincronizada: ${formatTime(duracionSegundos)}.`;
+          timerStatus.textContent = `Sesión registrada: ${formatTime(duracionSegundos)}.`;
         }
       }
       elapsedStudySeconds = 0;

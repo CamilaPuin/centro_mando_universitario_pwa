@@ -72,7 +72,7 @@ export async function apiRequest<T>(
   }
   if (authenticated) {
     const token = getAuthSession()?.token;
-    if (!token) throw new Error('Inicia sesión para sincronizar tus datos con el servidor.');
+    if (!token) throw new Error('Inicia sesión para sincronizar tus datos entre dispositivos.');
     headers.set('Authorization', `Bearer ${token}`);
   }
 
@@ -91,7 +91,7 @@ export async function apiRequest<T>(
   }
   if (!response.ok) {
     if (response.status === 401 && authenticated) clearAuthSession();
-    let message = `Error del servidor (HTTP ${response.status}).`;
+    let message = `No se pudo completar la solicitud (código ${response.status}).`;
     try {
       const errorBody: unknown = await response.json();
       if (typeof errorBody === 'object' && errorBody !== null) {

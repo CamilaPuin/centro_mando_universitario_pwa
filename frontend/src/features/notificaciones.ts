@@ -81,7 +81,7 @@ async function revisarRecordatorios(
       }
     } catch (error) {
       console.error('No se pudieron cargar alertas del servidor:', error);
-      status.textContent = `Alertas del servidor no disponibles; continúan los recordatorios locales: ${error instanceof Error ? error.message : 'error de conexión.'}`;
+      status.textContent = `No se pudieron cargar las notificaciones de tu cuenta. Los recordatorios de este dispositivo siguen activos: ${error instanceof Error ? error.message : 'revisa tu conexión.'}`;
     }
   }
   for (const delivery of deliveries) {
@@ -191,13 +191,13 @@ async function habilitarNotificaciones(status: HTMLElement): Promise<void> {
     }
 
     status.textContent = isAuthenticated()
-      ? 'Recordatorios locales y alertas del servidor activados.'
-      : 'Recordatorios locales activados. Conecta tu cuenta para recibir alertas del servidor.';
+      ? 'Recordatorios activados.'
+      : 'Recordatorios activados en este dispositivo. Inicia sesión para recibir notificaciones de tu cuenta.';
   } catch (error) {
     console.error('No se pudieron activar las notificaciones:', error);
     status.textContent = error instanceof Error
-      ? `Notificación local activada; alertas del servidor no disponibles: ${error.message}`
-      : 'Notificación local activada; alertas del servidor no disponibles.';
+      ? `Recordatorios activados en este dispositivo. No se pudieron cargar las notificaciones de tu cuenta: ${error.message}`
+      : 'Recordatorios activados en este dispositivo. No se pudieron cargar las notificaciones de tu cuenta.';
   }
 
 }

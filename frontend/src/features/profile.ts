@@ -11,6 +11,9 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
   const nameInput = document.getElementById('profile-name') as HTMLInputElement | null;
   const usernameInput = document.getElementById('profile-username') as HTMLInputElement | null;
   const photoPreview = document.getElementById('profile-photo-preview') as HTMLImageElement | null;
+  const menuName = document.getElementById('profile-menu-name');
+  const menuInitial = document.getElementById('profile-menu-initial');
+  const menuPhoto = document.getElementById('profile-menu-photo') as HTMLImageElement | null;
   const photoFile = document.getElementById('profile-photo-file') as HTMLInputElement | null;
   const status = document.getElementById('profile-status');
   const cameraDialog = document.getElementById('dlg-camara') as HTMLDialogElement | null;
@@ -38,6 +41,15 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
   let pendingPhoto: Blob | undefined;
   let cameraStream: MediaStream | undefined;
   let photoUrl: string | undefined;
+  const profileChannel = typeof BroadcastChannel === 'undefined'
+    ? undefined
+    : new BroadcastChannel('centro-mando-profile');
+
+  function updateProfileMenu(name: string): void {
+    const displayName = name.trim() || 'Mi perfil';
+    if (menuName) menuName.textContent = displayName;
+    if (menuInitial) menuInitial.textContent = displayName.charAt(0).toLocaleUpperCase('es');
+  }
 
   function showPhoto(blob: Blob | undefined): void {
     if (photoUrl) URL.revokeObjectURL(photoUrl);
@@ -45,12 +57,27 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
     if (!blob) {
       profilePhotoPreview.removeAttribute('src');
       profilePhotoPreview.hidden = true;
+      if (menuPhoto) {
+        menuPhoto.removeAttribute('src');
+        menuPhoto.hidden = true;
+      }
+      if (menuInitial) menuInitial.hidden = false;
       return;
     }
     photoUrl = URL.createObjectURL(blob);
     profilePhotoPreview.src = photoUrl;
     profilePhotoPreview.hidden = false;
+    if (menuPhoto) {
+      menuPhoto.src = photoUrl;
+      menuPhoto.hidden = false;
+      if (menuInitial) menuInitial.hidden = true;
+    }
   }
+
+  menuPhoto?.addEventListener('error', () => {
+    menuPhoto.hidden = true;
+    if (menuInitial) menuInitial.hidden = false;
+  });
 
   function stopCamera(): void {
     detenerCamara(cameraStream);
@@ -72,12 +99,14 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
     });
     pendingPhoto = undefined;
     showPhoto(currentProfile.foto);
+    updateProfileMenu(currentProfile.nombre);
+    profileChannel?.postMessage('profile-updated');
   }
 
   profileForm.addEventListener('submit', event => {
     event.preventDefault();
     void saveProfile().then(() => {
-      profileStatus.textContent = 'Perfil guardado localmente en este dispositivo.';
+      profileStatus.textContent = 'Perfil guardado.';
     }).catch(error => {
       profileStatus.textContent = error instanceof Error ? error.message : 'No se pudo guardar el perfil.';
     });
@@ -96,7 +125,7 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
     showPhoto(file);
     if (profileNameInput.value.trim() && profileUsernameInput.value.trim()) {
       void saveProfile(file).then(() => {
-        profileStatus.textContent = 'Foto de perfil guardada localmente.';
+        profileStatus.textContent = 'Foto de perfil guardada.';
       }).catch(error => {
         profileStatus.textContent = error instanceof Error ? error.message : 'No se pudo guardar la fotografía.';
       });
@@ -129,7 +158,7 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
         showPhoto(pendingPhoto);
         if (profileNameInput.value.trim() && profileUsernameInput.value.trim()) {
           await saveProfile(pendingPhoto);
-          profileStatus.textContent = 'Foto de perfil capturada y guardada localmente.';
+          profileStatus.textContent = 'Foto de perfil capturada y guardada.';
         } else {
           profileStatus.textContent = 'Foto capturada. Completa tu nombre y usuario y guarda el perfil.';
         }
@@ -144,9 +173,11 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
   window.addEventListener('pagehide', () => {
     stopCamera();
     if (photoUrl) URL.revokeObjectURL(photoUrl);
+    profileChannel?.close();
   });
 
-  void databaseReady.then(async db => {
+  async function loadProfile(): Promise<void> {
+    const db = await databaseReady;
     if (!db) {
       profileStatus.textContent = 'El perfil no está disponible porque IndexedDB no pudo abrirse.';
       return;
@@ -156,8 +187,12 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
       profileNameInput.value = currentProfile.nombre;
       profileUsernameInput.value = currentProfile.nombreUsuario;
       showPhoto(currentProfile.foto);
+      updateProfileMenu(currentProfile.nombre);
       profileStatus.textContent = 'Perfil cargado desde este dispositivo.';
     } else {
+      profileNameInput.value = '';
+      profileUsernameInput.value = '';
+      updateProfileMenu('');
       const legacyPhoto = await obtenerUltimaFotoPerfil(db);
       showPhoto(legacyPhoto);
       if (legacyPhoto) {
@@ -171,7 +206,16 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
         profileStatus.textContent = 'Se recuperó la foto guardada anteriormente. Completa tu perfil para conservarla.';
       }
     }
-  }).catch(error => {
+  }
+
+  profileChannel?.addEventListener('message', event => {
+    if (event.data !== 'profile-updated') return;
+    void loadProfile().catch(error => {
+      console.error('No se pudo actualizar el perfil desde otra ventana:', error);
+    });
+  });
+
+  void loadProfile().catch(error => {
     console.error('No se pudo cargar el perfil local:', error);
     profileStatus.textContent = 'No se pudo cargar el perfil local.';
   });
