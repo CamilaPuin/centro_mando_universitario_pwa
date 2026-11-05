@@ -45,7 +45,7 @@ export function renderizarAplicacion(): void {
         <nav class="nav-tabs" aria-label="Secciones del Centro de Mando">
           <button class="tab-btn active" data-tab="tab-resumen">Resumen del Día</button>
           <button class="tab-btn" data-tab="tab-asignaturas">Asignaturas y Horario</button>
-          <button class="tab-btn" data-tab="tab-entregas">Tablero de Entregas</button>
+          <button class="tab-btn" data-tab="tab-entregas">Entregas</button>
           <button class="tab-btn" data-tab="tab-calendario">Calendario</button>
           <button class="tab-btn" data-tab="tab-pomodoro">Cronómetro y Pomodoro</button>
           <button class="tab-btn" data-tab="tab-notas">Apuntes por Materia</button>
@@ -365,7 +365,7 @@ export function renderizarAplicacion(): void {
                 <input id="goal-study-minutes" class="form-control" type="number" min="1" max="10080" required />
               </div>
               <div class="form-group">
-                <label for="goal-average">Promedio deseado (escala 0–5):</label>
+                <label for="goal-average">Promedio deseado (escala 0-5):</label>
                 <input id="goal-average" class="form-control" type="number" min="0" max="5" step="0.1" required />
               </div>
               <button class="btn btn-save" type="submit">Guardar metas</button>
