@@ -452,7 +452,7 @@ export function quitarCambioPendiente(db: IDBDatabase, idCambio: string): Promis
     tx.objectStore('outbox').delete(idCambio);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error ?? new Error('No se pudo retirar el cambio sincronizado.'));
+    tx.onabort = () => reject(tx.error ?? new Error('No se pudo retirar el cambio.'));
   });
 }
 

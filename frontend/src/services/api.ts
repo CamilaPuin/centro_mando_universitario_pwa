@@ -100,7 +100,6 @@ export async function apiRequest<T>(
         if (typeof detail === 'string' && detail.trim()) message = detail;
       }
     } catch {
-      // The response may not have a JSON body.
     }
     throw new Error(message);
   }
