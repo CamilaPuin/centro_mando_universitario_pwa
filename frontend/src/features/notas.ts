@@ -81,7 +81,7 @@ export function inicializarNotas(databaseReady: Promise<IDBDatabase | undefined>
             const database = await databaseReady;
             if (!database || note.id === undefined) throw new Error('No se pudo acceder al apunte.');
             if (note.backendId && (!isAuthenticated() || !navigator.onLine)) {
-              throw new Error('Inicia sesión y recupera la conexión antes de eliminar este apunte sincronizado.');
+              throw new Error('Inicia sesión y recupera la conexión antes de eliminar este apunte.');
             }
             if (isAuthenticated() && navigator.onLine && note.backendId) {
               await apiRequest<void>(`/subjects/notes/${note.backendId}`, { method: 'DELETE' });
