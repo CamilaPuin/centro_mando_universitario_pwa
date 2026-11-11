@@ -13,8 +13,10 @@ import { inicializarProgreso } from './features/progreso';
 import { inicializarPerfil } from './features/profile';
 import { abrirBaseDeDatos } from './utils/db';
 import { inicializarAutenticacion } from './features/auth';
+import { inicializarTema } from './features/tema';
 
 renderizarAplicacion();
+inicializarTema();
 inicializarPwa();
 inicializarNavegacion();
 inicializarAutenticacion();
