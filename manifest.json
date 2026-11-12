@@ -6,8 +6,8 @@
   "scope": "/centro_mando_universitario_pwa/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F2F6F9",
-  "theme_color": "#10182B",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
   "icons": [
     {
       "src": "icons/icon-192.png",
