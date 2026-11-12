@@ -9,12 +9,7 @@ import { renderizarModuloProgreso } from './modulos/progreso';
 import { renderizarModuloResumen } from './modulos/resumen';
 import { renderizarDialogoCuenta } from './modulos/cuenta';
 
-export function renderizarAplicacion(): void {
-  const app = document.getElementById('app');
-  if (!app) {
-    throw new Error('No se encontró el contenedor raíz #app.');
-  }
-
+export function obtenerMarkupAplicacion(): string {
   const fechaHoy = new Date().toLocaleDateString('es-ES', {
     weekday: 'long',
     year: 'numeric',
@@ -33,7 +28,7 @@ export function renderizarAplicacion(): void {
     renderizarModuloDispositivo()
   ];
 
-  app.innerHTML = `
+  return `
     <div class="app-container">
       ${renderizarEncabezado(fechaFormateada)}
       <main id="main-content">
