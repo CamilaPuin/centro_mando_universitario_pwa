@@ -1,8 +1,7 @@
 import {
   listarAsignaturas,
   listarClasesHorario,
-  listarEntregas,
-  type EntregaAcademica
+  listarEntregas
 } from '../utils/db';
 
 const WEEKDAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -127,44 +126,4 @@ export async function obtenerDatosCalendario(
       };
     })
   };
-}
-
-export function renderizarSemanaExamenes(
-  container: HTMLElement,
-  deliveries: EntregaAcademica[],
-  now = new Date()
-): void {
-  const end = new Date(now);
-  end.setDate(end.getDate() + 7);
-  const exams = deliveries
-    .filter(delivery => delivery.categoria === 'examen' && delivery.estado !== 'entregada' && delivery.fechaEntrega)
-    .filter(delivery => {
-      const date = new Date(delivery.fechaEntrega);
-      return !Number.isNaN(date.getTime()) && date >= now && date <= end;
-    })
-    .sort((a, b) => a.fechaEntrega.localeCompare(b.fechaEntrega));
-  container.replaceChildren();
-  if (!exams.length) {
-    container.append(Object.assign(document.createElement('p'), {
-      className: 'dashboard-empty',
-      textContent: 'No hay exámenes pendientes en los próximos siete días.'
-    }));
-    return;
-  }
-  for (const exam of exams) {
-    const item = document.createElement('article');
-    item.className = 'exam-week-item';
-    const title = document.createElement('strong');
-    title.textContent = exam.titulo;
-    const date = document.createElement('span');
-    date.textContent = `${exam.asignatura} · ${new Date(exam.fechaEntrega).toLocaleString('es', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    })}`;
-    item.append(title, date);
-    container.append(item);
-  }
 }
