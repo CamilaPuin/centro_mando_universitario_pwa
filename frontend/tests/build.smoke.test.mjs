@@ -16,5 +16,7 @@ test('production build contains the React app, PWA manifest, and service worker'
   assert.match(rootMarkup, /manifest\.json/);
   assert.match(applicationBundle, /tab-resumen/);
   assert.match(applicationBundle, /tab-dispositivo/);
+  assert.match(applicationBundle, /Así va tu día/);
+  assert.match(applicationBundle, /Cambiar a modo oscuro/);
   assert.ok(readFileSync(new URL('sw.js', distDirectory), 'utf8').length > 0);
 });
