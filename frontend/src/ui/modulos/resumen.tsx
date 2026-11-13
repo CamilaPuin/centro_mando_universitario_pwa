@@ -4,9 +4,10 @@ import { obtenerResumenDia, type ResumenDia } from '../../features/resumen';
 interface ModuloResumenProps {
   activo: boolean;
   databaseReady: Promise<IDBDatabase | undefined>;
+  onNavigate: (tabId: string, focusTargetId?: string) => void;
 }
 
-export function ModuloResumen({ activo, databaseReady }: ModuloResumenProps): ReactElement {
+export function ModuloResumen({ activo, databaseReady, onNavigate }: ModuloResumenProps): ReactElement {
   const [resumen, setResumen] = useState<ResumenDia>();
   const [error, setError] = useState(false);
 
@@ -53,7 +54,11 @@ export function ModuloResumen({ activo, databaseReady }: ModuloResumenProps): Re
             <p className="hero-badge">Tu espacio académico</p>
             <h1 className="hero-title">Así va tu día</h1>
           </div>
-          <button className="hero-action" type="button" data-tab="tab-entregas" data-focus="delivery-title-input">
+          <button
+            className="hero-action"
+            type="button"
+            onClick={() => onNavigate('tab-entregas', 'delivery-title-input')}
+          >
             <svg aria-hidden="true" viewBox="0 0 20 20" fill="none">
               <path d="M10 4v12m6-6H4" />
             </svg>

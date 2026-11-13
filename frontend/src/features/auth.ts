@@ -1,113 +1,92 @@
+import { useEffect, useState } from 'react';
 import {
   clearAuthSession,
   getAuthSession,
   iniciarSesion,
-  registrarCuenta
+  registrarCuenta,
+  type AuthSession
 } from '../services/api';
 
-export function inicializarAutenticacion(): void {
-  const button = document.getElementById('auth-button') as HTMLButtonElement | null;
-  const dialog = document.getElementById('auth-dialog') as HTMLDialogElement | null;
-  const form = document.getElementById('auth-form') as HTMLFormElement | null;
-  const modeButton = document.getElementById('auth-mode-toggle') as HTMLButtonElement | null;
-  const firstName = document.getElementById('auth-first-name') as HTMLInputElement | null;
-  const lastName = document.getElementById('auth-last-name') as HTMLInputElement | null;
-  const firstNameRequired = document.getElementById('auth-first-name-required');
-  const lastNameRequired = document.getElementById('auth-last-name-required');
-  const username = document.getElementById('auth-username') as HTMLInputElement | null;
-  const password = document.getElementById('auth-password') as HTMLInputElement | null;
-  const status = document.getElementById('auth-status');
-  const sessionStatus = document.getElementById('auth-session-status');
-  if (!button || !dialog || !form || !modeButton || !firstName || !lastName ||
-      !firstNameRequired || !lastNameRequired || !sessionStatus ||
-      !username || !password || !status) return;
+type SessionSnapshot = {
+  session?: AuthSession;
+  error?: string;
+};
 
-  let registerMode = false;
+export type CredencialesCuenta =
+  | { modo: 'inicio'; username: string; password: string }
+  | { modo: 'registro'; username: string; password: string; firstName: string; lastName: string };
 
-  const updateButton = (): void => {
-    const session = getAuthSession();
-    button.textContent = session ? 'Cerrar sesión' : 'Iniciar sesión / Crear cuenta';
-    button.setAttribute('aria-label', session ? `Cerrar sesión de ${session.username}` : 'Iniciar sesión');
-    sessionStatus.textContent = session
-      ? navigator.onLine
-        ? `Sesión guardada para ${session.username}. Se validará con el backend al sincronizar.`
-        : `Sesión local de ${session.username}. Puedes seguir usando los datos guardados; se sincronizarán al reconectarte.`
-      : navigator.onLine
+function readSession(): SessionSnapshot {
+  try {
+    return { session: getAuthSession() };
+  } catch (error) {
+    console.error('No se pudo leer la sesión del navegador:', error);
+    return {
+      error: error instanceof Error
+        ? `No se pudo leer la sesión del navegador: ${error.message}`
+        : 'No se pudo leer la sesión del navegador.'
+    };
+  }
+}
+
+export function useEstadoAutenticacion(): {
+  session: AuthSession | undefined;
+  sessionMessage: string;
+  offline: boolean;
+} {
+  const [snapshot, setSnapshot] = useState(readSession);
+  const [online, setOnline] = useState(() => navigator.onLine);
+
+  useEffect(() => {
+    const refresh = (): void => {
+      setSnapshot(readSession());
+      setOnline(navigator.onLine);
+    };
+    const handleOnline = (): void => {
+      setSnapshot(readSession());
+      setOnline(true);
+    };
+    const handleOffline = (): void => {
+      setSnapshot(readSession());
+      setOnline(false);
+    };
+
+    window.addEventListener('auth-changed', refresh);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('auth-changed', refresh);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  const sessionMessage = snapshot.error ?? (
+    snapshot.session
+      ? online
+        ? `Sesión guardada para ${snapshot.session.username}. Se validará con el backend al sincronizar.`
+        : `Sesión local de ${snapshot.session.username}. Puedes seguir usando los datos guardados; se sincronizarán al reconectarte.`
+      : online
         ? 'Inicia sesión para sincronizar tus datos.'
-        : 'Modo sin conexión: puedes continuar con los datos guardados en este dispositivo.';
-    sessionStatus.classList.toggle('offline-session', !navigator.onLine);
-  };
-  const updateMode = (): void => {
-    firstName.closest('.form-group')?.toggleAttribute('hidden', !registerMode);
-    lastName.closest('.form-group')?.toggleAttribute('hidden', !registerMode);
-    firstName.required = registerMode;
-    lastName.required = registerMode;
-    firstNameRequired.hidden = !registerMode;
-    lastNameRequired.hidden = !registerMode;
-    password.autocomplete = registerMode ? 'new-password' : 'current-password';
-    const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
-    if (submit) submit.textContent = registerMode ? 'Crear cuenta' : 'Iniciar sesión';
-    modeButton.textContent = registerMode ? 'Ya tengo una cuenta' : 'Crear cuenta nueva';
-  };
-  const openAuthDialog = (): void => {
-    status.textContent = navigator.onLine
-      ? ''
-      : 'No hay conexión para iniciar sesión. Puedes usar la app en modo local y conectarte después para autenticarte y sincronizar.';
-    dialog.showModal();
-  };
+        : 'Modo sin conexión: puedes continuar con los datos guardados en este dispositivo.'
+  );
 
-  button.addEventListener('click', () => {
-    window.dispatchEvent(new Event('close-header-menus'));
-    if (getAuthSession()) {
-      clearAuthSession();
-      status.textContent = 'Sesión cerrada. Puedes seguir usando la app en este dispositivo.';
-      return;
-    }
-    openAuthDialog();
-  });
-  modeButton.addEventListener('click', () => {
-    registerMode = !registerMode;
-    updateMode();
-  });
-  form.addEventListener('submit', event => {
-    event.preventDefault();
-    const user = username.value.trim();
-    const pass = password.value;
-    if (!user || !pass) {
-      status.textContent = 'Escribe tu usuario y contraseña.';
-      return;
-    }
-    const submit = form.querySelector<HTMLButtonElement>('button[type="submit"]');
-    if (submit) submit.disabled = true;
-    status.textContent = registerMode ? 'Creando cuenta…' : 'Iniciando sesión…';
-    void (async () => {
-      try {
-        if (registerMode) {
-          await registrarCuenta({
-            username: user,
-            password: pass,
-            firstName: firstName.value.trim(),
-            lastName: lastName.value.trim()
-          });
-        } else {
-          await iniciarSesion(user, pass);
-        }
-        dialog.close();
-        password.value = '';
-        status.textContent = 'Sesión iniciada. Tus cambios se sincronizarán automáticamente.';
-      } catch (error) {
-        status.textContent = error instanceof Error ? error.message : 'No se pudo iniciar sesión.';
-      } finally {
-        if (submit) submit.disabled = false;
-      }
-    })();
-  });
-  dialog.querySelectorAll<HTMLButtonElement>('[data-close-auth]').forEach(close => {
-    close.addEventListener('click', () => dialog.close());
-  });
-  window.addEventListener('auth-changed', updateButton);
-  window.addEventListener('online', updateButton);
-  window.addEventListener('offline', updateButton);
-  updateMode();
-  updateButton();
+  return { session: snapshot.session, sessionMessage, offline: !online };
+}
+
+export async function autenticarCuenta(credenciales: CredencialesCuenta): Promise<void> {
+  if (credenciales.modo === 'registro') {
+    await registrarCuenta({
+      username: credenciales.username,
+      password: credenciales.password,
+      firstName: credenciales.firstName,
+      lastName: credenciales.lastName
+    });
+  } else {
+    await iniciarSesion(credenciales.username, credenciales.password);
+  }
+}
+
+export function cerrarSesion(): void {
+  clearAuthSession();
 }

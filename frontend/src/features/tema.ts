@@ -1,52 +1,63 @@
-type Theme = 'light' | 'dark';
+import { useEffect, useState } from 'react';
 
 const THEME_STORAGE_KEY = 'cmu-theme';
 
-export function inicializarTema(): void {
-  const root = document.documentElement;
-  const button = document.getElementById('theme-toggle');
-  const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-  const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
-  let userSelectedTheme = false;
+type Theme = 'light' | 'dark';
 
-  const getStoredTheme = (): Theme | null => {
-    try {
-      const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-      return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : null;
-    } catch (error) {
-      console.warn('No se pudo leer la preferencia de tema:', error);
-      return null;
-    }
+interface ThemePreference {
+  theme: Theme;
+  selectedByUser: boolean;
+}
+
+function readStoredTheme(): Theme | null {
+  try {
+    const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : null;
+  } catch (error) {
+    console.warn('No se pudo leer la preferencia de tema:', error);
+    return null;
+  }
+}
+
+function getInitialPreference(): ThemePreference {
+  const savedTheme = readStoredTheme();
+  return {
+    theme: savedTheme ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
+    selectedByUser: savedTheme !== null
   };
+}
 
-  const applyTheme = (theme: Theme): void => {
-    root.dataset.theme = theme;
-    root.style.colorScheme = theme;
-    if (button) {
-      const nextThemeLabel = theme === 'dark' ? 'claro' : 'oscuro';
-      const label = `Cambiar a modo ${nextThemeLabel}`;
-      button.setAttribute('aria-label', label);
-      button.setAttribute('title', label);
-    }
-    if (themeColor) themeColor.content = theme === 'dark' ? '#191919' : '#ffffff';
-  };
+export function useTema(): { theme: Theme; toggleTheme: () => void } {
+  const [preference, setPreference] = useState(getInitialPreference);
 
-  const savedTheme = getStoredTheme();
-  userSelectedTheme = savedTheme !== null;
-  applyTheme(savedTheme ?? (systemTheme.matches ? 'dark' : 'light'));
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = preference.theme;
+    root.style.colorScheme = preference.theme;
+    const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (themeColor) themeColor.content = preference.theme === 'dark' ? '#191919' : '#ffffff';
+  }, [preference.theme]);
 
-  button?.addEventListener('click', () => {
-    const nextTheme: Theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
-    applyTheme(nextTheme);
-    userSelectedTheme = true;
+  useEffect(() => {
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const updateSystemTheme = (event: MediaQueryListEvent): void => {
+      setPreference(current => current.selectedByUser
+        ? current
+        : { ...current, theme: event.matches ? 'dark' : 'light' });
+    };
+    systemTheme.addEventListener('change', updateSystemTheme);
+    return () => systemTheme.removeEventListener('change', updateSystemTheme);
+  }, []);
+
+  const toggleTheme = (): void => {
+    const nextTheme: Theme = preference.theme === 'dark' ? 'light' : 'dark';
+    setPreference({ theme: nextTheme, selectedByUser: true });
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, nextTheme);
     } catch (error) {
       console.warn('No se pudo guardar la preferencia de tema:', error);
     }
-  });
+  };
 
-  systemTheme.addEventListener('change', event => {
-    if (!userSelectedTheme) applyTheme(event.matches ? 'dark' : 'light');
-  });
+  return { theme: preference.theme, toggleTheme };
 }

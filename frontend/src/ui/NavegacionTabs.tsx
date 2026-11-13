@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 
 interface NavegacionTabsProps {
   tabActiva: string;
+  onNavigate: (tabId: string) => void;
 }
 
 interface TabDefinition {
@@ -38,7 +39,7 @@ const tabs: TabDefinition[] = [
   }
 ];
 
-export function NavegacionTabs({ tabActiva }: NavegacionTabsProps) {
+export function NavegacionTabs({ tabActiva, onNavigate }: NavegacionTabsProps) {
   return (
     <nav className="nav-tabs" aria-label="Secciones principales">
       {tabs.map(({ id, label, icon }) => {
@@ -48,9 +49,9 @@ export function NavegacionTabs({ tabActiva }: NavegacionTabsProps) {
             key={id}
             className={activa ? 'tab-btn active' : 'tab-btn'}
             type="button"
-            data-tab={id}
             aria-current={activa ? 'page' : undefined}
             aria-controls={id}
+            onClick={() => onNavigate(id)}
           >
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">{icon}</svg>
             <span className="tab-label">{label}</span>

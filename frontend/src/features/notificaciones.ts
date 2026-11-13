@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react';
 import { apiRequest, isAuthenticated } from '../services/api';
 import {
   listarAsignaturas,
@@ -32,11 +33,7 @@ function storeSentReminders(sent: Set<string>): void {
   }
 }
 
-async function sendReminder(
-  title: string,
-  body: string,
-  tag: string
-): Promise<void> {
+async function sendReminder(title: string, body: string, tag: string): Promise<void> {
   if (!('serviceWorker' in navigator)) {
     new Notification(title, { body, tag });
     return;
@@ -56,7 +53,7 @@ async function sendReminder(
 async function revisarRecordatorios(
   databaseReady: Promise<IDBDatabase | undefined>,
   sent: Set<string>,
-  status: HTMLElement
+  updateStatus: (message: string) => void
 ): Promise<void> {
   if (Notification.permission !== 'granted') return;
   const db = await databaseReady;
@@ -81,7 +78,7 @@ async function revisarRecordatorios(
       }
     } catch (error) {
       console.error('No se pudieron cargar alertas del servidor:', error);
-      status.textContent = `No se pudieron cargar las notificaciones de tu cuenta. Los recordatorios de este dispositivo siguen activos: ${error instanceof Error ? error.message : 'revisa tu conexión.'}`;
+      updateStatus(`No se pudieron cargar las notificaciones de tu cuenta. Los recordatorios de este dispositivo siguen activos: ${error instanceof Error ? error.message : 'revisa tu conexión.'}`);
     }
   }
   for (const delivery of deliveries) {
@@ -120,22 +117,28 @@ async function revisarRecordatorios(
   }
 }
 
-function activateAcademicReminders(
-  databaseReady: Promise<IDBDatabase | undefined>,
-  status: HTMLElement
-): void {
+function stopAcademicReminders(): void {
   if (reminderTimer !== undefined) window.clearInterval(reminderTimer);
-  const sent = readSentReminders();
-  const run = (): void => {
-    void revisarRecordatorios(databaseReady, sent, status).catch(error => {
-      console.error('No se pudieron revisar los próximos recordatorios:', error);
-      status.textContent = 'El permiso está activo, pero no se pudieron revisar las fechas académicas locales.';
-    });
-  };
+  reminderTimer = undefined;
   if (reminderRun) {
     window.removeEventListener('entregas-actualizadas', reminderRun);
     window.removeEventListener('horario-actualizado', reminderRun);
   }
+  reminderRun = undefined;
+}
+
+function activateAcademicReminders(
+  databaseReady: Promise<IDBDatabase | undefined>,
+  updateStatus: (message: string) => void
+): void {
+  stopAcademicReminders();
+  const sent = readSentReminders();
+  const run = (): void => {
+    void revisarRecordatorios(databaseReady, sent, updateStatus).catch(error => {
+      console.error('No se pudieron revisar los próximos recordatorios:', error);
+      updateStatus('El permiso está activo, pero no se pudieron revisar las fechas académicas locales.');
+    });
+  };
   reminderRun = run;
   run();
   reminderTimer = window.setInterval(run, 60_000);
@@ -148,30 +151,25 @@ function activateAcademicReminders(
   window.addEventListener('horario-actualizado', run);
 }
 
-async function habilitarNotificaciones(status: HTMLElement): Promise<void> {
+async function requestNotificationPermission(): Promise<string> {
   if (!('Notification' in window)) {
-    status.textContent = 'Este navegador no admite notificaciones del sistema.';
-    return;
+    return 'Este navegador no admite notificaciones del sistema.';
   }
-
   if (!window.isSecureContext) {
-    status.textContent = 'Las notificaciones requieren un contexto seguro (HTTPS).';
-    return;
+    return 'Las notificaciones requieren un contexto seguro (HTTPS).';
   }
 
-  let permiso: NotificationPermission;
+  let permission: NotificationPermission;
   try {
-    permiso = Notification.permission === 'default'
+    permission = Notification.permission === 'default'
       ? await Notification.requestPermission()
       : Notification.permission;
   } catch (error) {
     console.error('No se pudo solicitar permiso para notificaciones:', error);
-    status.textContent = 'No se pudo solicitar el permiso de notificaciones.';
-    return;
+    return 'No se pudo solicitar el permiso de notificaciones.';
   }
-  if (permiso !== 'granted') {
-    status.textContent = 'Permiso de notificaciones no concedido. Puedes cambiarlo desde la configuración del navegador.';
-    return;
+  if (permission !== 'granted') {
+    return 'Permiso de notificaciones no concedido. Puedes cambiarlo desde la configuración del navegador.';
   }
 
   try {
@@ -190,47 +188,58 @@ async function habilitarNotificaciones(status: HTMLElement): Promise<void> {
       });
     }
 
-    status.textContent = isAuthenticated()
+    return isAuthenticated()
       ? 'Recordatorios activados.'
       : 'Recordatorios activados en este dispositivo. Inicia sesión para recibir notificaciones de tu cuenta.';
   } catch (error) {
     console.error('No se pudieron activar las notificaciones:', error);
-    status.textContent = error instanceof Error
+    return error instanceof Error
       ? `Recordatorios activados en este dispositivo. No se pudieron cargar las notificaciones de tu cuenta: ${error.message}`
       : 'Recordatorios activados en este dispositivo. No se pudieron cargar las notificaciones de tu cuenta.';
   }
-
 }
 
-export function inicializarNotificaciones(databaseReady: Promise<IDBDatabase | undefined>): void {
-  const button = document.getElementById('btn-enable-notifications') as HTMLButtonElement | null;
-  const status = document.getElementById('notification-status');
-  if (!button || !status) return;
-  window.addEventListener('auth-changed', () => {
-    remoteNotificationsCheckedAt = 0;
-    reminderRun?.();
-  });
+export function useRecordatorios(
+  databaseReady: Promise<IDBDatabase | undefined>
+): { status: string; activate: () => Promise<void> } {
+  const [status, setStatus] = useState('No se solicitará permiso hasta que pulses el botón.');
 
-  button.addEventListener('click', () => {
-    void habilitarNotificaciones(status).then(() => {
-      if ('Notification' in window && Notification.permission === 'granted') {
-        activateAcademicReminders(databaseReady, status);
+  useEffect(() => {
+    const handleAuthChanged = (): void => {
+      remoteNotificationsCheckedAt = 0;
+      reminderRun?.();
+    };
+    window.addEventListener('auth-changed', handleAuthChanged);
+
+    try {
+      if (
+        'localStorage' in window &&
+        window.localStorage.getItem(ENABLED_KEY) === 'true' &&
+        'Notification' in window &&
+        Notification.permission === 'granted'
+      ) {
+        activateAcademicReminders(databaseReady, setStatus);
+        setStatus('Recordatorios académicos activos en este dispositivo.');
       }
-    });
-  });
-  try {
-    if (
-      'localStorage' in window &&
-      window.localStorage.getItem(ENABLED_KEY) === 'true' &&
-      'Notification' in window &&
-      Notification.permission === 'granted'
-    ) {
-      activateAcademicReminders(databaseReady, status);
-      status.textContent = 'Recordatorios académicos activos en este dispositivo.';
+    } catch (error) {
+      console.warn('No se pudo restaurar la preferencia de recordatorios:', error);
     }
-  } catch (error) {
-    console.warn('No se pudo restaurar la preferencia de recordatorios:', error);
-  }
+
+    return () => {
+      window.removeEventListener('auth-changed', handleAuthChanged);
+      stopAcademicReminders();
+    };
+  }, [databaseReady]);
+
+  const activate = useCallback(async (): Promise<void> => {
+    const message = await requestNotificationPermission();
+    setStatus(message);
+    if ('Notification' in window && Notification.permission === 'granted') {
+      activateAcademicReminders(databaseReady, setStatus);
+    }
+  }, [databaseReady]);
+
+  return { status, activate };
 }
 
 interface RemoteNotification {

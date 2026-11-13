@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { inicializarAutenticacion } from './features/auth';
-import { inicializarNavegacion } from './features/navegacion';
-import { inicializarNotificaciones } from './features/notificaciones';
-import { inicializarPomodoro } from './features/pomodoro';
-import { inicializarPerfil } from './features/profile';
-import { inicializarPwa } from './features/pwa';
+import { cerrarSesion, useEstadoAutenticacion } from './features/auth';
+import { usePerfilLocal } from './features/profile';
+import { usePwa } from './features/pwa';
 import { inicializarSincronizacion } from './features/sync';
-import { inicializarTema } from './features/tema';
+import { useTema } from './features/tema';
 import { abrirBaseDeDatos } from './utils/db';
 import { NavegacionTabs } from './ui/NavegacionTabs';
 import { Encabezado } from './ui/Encabezado';
@@ -22,6 +19,11 @@ import { ModuloResumen } from './ui/modulos/resumen';
 
 export function App() {
   const [tabActiva, setTabActiva] = useState('tab-resumen');
+  const [focusAfterNavigation, setFocusAfterNavigation] = useState<string>();
+  const [dialogoCuentaAbierto, setDialogoCuentaAbierto] = useState(false);
+  const [errorAccionCuenta, setErrorAccionCuenta] = useState('');
+  const { theme, toggleTheme } = useTema();
+  const { session, sessionMessage, offline } = useEstadoAutenticacion();
   const databaseReady = useMemo(() =>
     'indexedDB' in window &&
     typeof window.indexedDB !== 'undefined' &&
@@ -31,87 +33,91 @@ export function App() {
           return undefined;
         })
       : Promise.resolve(undefined), []);
+  const profile = usePerfilLocal(databaseReady);
+  const pwa = usePwa();
+
+  const accionarCuenta = (): void => {
+    window.dispatchEvent(new Event('close-header-menus'));
+    setErrorAccionCuenta('');
+    if (!session) {
+      setDialogoCuentaAbierto(true);
+      return;
+    }
+    try {
+      cerrarSesion();
+    } catch (error) {
+      console.error('No se pudo cerrar la sesión:', error);
+      setErrorAccionCuenta(error instanceof Error
+        ? error.message
+        : 'No se pudo cerrar la sesión.');
+    }
+  };
+
+  const navegarA = (tabId: string, focusTargetId?: string): void => {
+    setTabActiva(tabId);
+    setFocusAfterNavigation(focusTargetId);
+    window.dispatchEvent(new Event('close-header-menus'));
+    if (tabId !== 'tab-pomodoro') window.dispatchEvent(new Event('salir-modo-enfoque'));
+  };
 
   useEffect(() => {
-    inicializarTema();
-    inicializarPwa();
-    const limpiarNavegacion = inicializarNavegacion();
-    inicializarAutenticacion();
+    if (!focusAfterNavigation) return;
+    document.getElementById(focusAfterNavigation)?.focus();
+    setFocusAfterNavigation(undefined);
+  }, [tabActiva, focusAfterNavigation]);
 
-    const actualizarNavegacionSecundaria = (tabId: string): void => {
-      document.querySelectorAll<HTMLButtonElement>('#mobile-nav-menu [data-tab]').forEach(menuItem => {
-        if (menuItem.getAttribute('data-tab') === tabId) {
-          menuItem.setAttribute('aria-current', 'page');
-        } else {
-          menuItem.removeAttribute('aria-current');
-        }
-      });
-
-      document.getElementById('tools-menu-button')?.toggleAttribute(
-        'aria-current',
-        tabId === 'tab-pomodoro' || tabId === 'tab-notas'
-      );
-      document.getElementById('profile-menu-button')?.toggleAttribute(
-        'aria-current',
-        tabId === 'tab-dispositivo'
-      );
-    };
-    actualizarNavegacionSecundaria('tab-resumen');
-
-    const handleTabClick = (event: MouseEvent): void => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const button = target.closest<HTMLButtonElement>('[data-tab]');
-      if (!button) return;
-
-      const tabId = button.getAttribute('data-tab');
-      const view = tabId ? document.getElementById(tabId) : null;
-      if (!tabId || !view?.classList.contains('tab-view')) return;
-
-      setTabActiva(tabId);
-      actualizarNavegacionSecundaria(tabId);
-      window.dispatchEvent(new Event('close-header-menus'));
-
-      const focusTargetId = button.getAttribute('data-focus');
-      if (focusTargetId) document.getElementById(focusTargetId)?.focus();
-      if (tabId !== 'tab-pomodoro' && document.body.classList.contains('focus-mode')) {
-        document.body.classList.remove('focus-mode');
-        const focusButton = document.getElementById('btn-focus-mode');
-        focusButton?.setAttribute('aria-pressed', 'false');
-        if (focusButton) focusButton.textContent = 'Activar modo enfoque';
-      }
-    };
-
-    const root = document.getElementById('app');
-    root?.addEventListener('click', handleTabClick);
-
-    inicializarPomodoro(databaseReady);
+  useEffect(() => {
     const limpiarSincronizacion = inicializarSincronizacion(databaseReady);
-    inicializarNotificaciones(databaseReady);
-    inicializarPerfil(databaseReady);
 
     return () => {
-      root?.removeEventListener('click', handleTabClick);
-      limpiarNavegacion();
       limpiarSincronizacion();
     };
   }, []);
 
   return (
     <div className="app-container">
-      <Encabezado />
+      <Encabezado
+        tabActiva={tabActiva}
+        theme={theme}
+        authUsername={session?.username}
+        authSessionMessage={errorAccionCuenta || sessionMessage}
+        authOffline={offline}
+        profileName={profile.displayName}
+        profileInitial={profile.initial}
+        profilePhotoUrl={profile.photoUrl}
+        online={pwa.online}
+        installAvailable={pwa.installAvailable}
+        showIosInstallHelp={pwa.showIosInstallHelp}
+        installError={pwa.installError}
+        onNavigate={navegarA}
+        onAuthAction={accionarCuenta}
+        onInstall={() => { void pwa.install(); }}
+        onToggleTheme={toggleTheme}
+      />
       <main id="main-content">
-        <NavegacionTabs tabActiva={tabActiva} />
-        <ModuloResumen activo={tabActiva === 'tab-resumen'} databaseReady={databaseReady} />
+        <NavegacionTabs tabActiva={tabActiva} onNavigate={navegarA} />
+        <ModuloResumen
+          activo={tabActiva === 'tab-resumen'}
+          databaseReady={databaseReady}
+          onNavigate={navegarA}
+        />
         <ModuloAsignaturas activo={tabActiva === 'tab-asignaturas'} databaseReady={databaseReady} />
         <ModuloEntregas activo={tabActiva === 'tab-entregas'} databaseReady={databaseReady} />
         <ModuloCalendario activo={tabActiva === 'tab-calendario'} databaseReady={databaseReady} />
         <ModuloProgreso activo={tabActiva === 'tab-progreso'} databaseReady={databaseReady} />
         <ModuloNotas activo={tabActiva === 'tab-notas'} databaseReady={databaseReady} />
-        <ModuloPomodoro activo={tabActiva === 'tab-pomodoro'} />
-        <ModuloDispositivo activo={tabActiva === 'tab-dispositivo'} />
+        <ModuloPomodoro activo={tabActiva === 'tab-pomodoro'} databaseReady={databaseReady} />
+        <ModuloDispositivo
+          activo={tabActiva === 'tab-dispositivo'}
+          databaseReady={databaseReady}
+          profile={profile}
+        />
       </main>
-      <DialogoCuenta />
+      <DialogoCuenta
+        open={dialogoCuentaAbierto}
+        online={!offline}
+        onClose={() => setDialogoCuentaAbierto(false)}
+      />
       <footer className="app-footer">
         Centro de Mando Universitario Personal • PWA de Gestión Académica • 2026
       </footer>

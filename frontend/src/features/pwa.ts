@@ -1,82 +1,96 @@
-export function inicializarPwa(): void {
-  if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
-        .then(reg => console.log('Workbox SW registrado:', reg.scope))
-        .catch(err => console.error('Error al registrar SW:', err));
-    });
-  }
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-  function actualizarEstadoRed() {
-    const badge = document.getElementById('network-status');
-    const offlineBanner = document.getElementById('offline-banner');
-    if (!badge) return;
-    if (navigator.onLine) {
-      badge.className = 'badge online';
-      badge.innerHTML = `<span class="badge-dot"></span><span>En línea</span>`;
-      if (offlineBanner) offlineBanner.hidden = true;
-    } else {
-      badge.className = 'badge offline';
-      badge.innerHTML = `<span class="badge-dot"></span><span>Sin conexión</span>`;
-      if (offlineBanner) offlineBanner.hidden = false;
-    }
-  }
-  window.addEventListener('online', actualizarEstadoRed);
-  window.addEventListener('offline', actualizarEstadoRed);
-  actualizarEstadoRed();
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>;
+  userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
+}
 
-  interface BeforeInstallPromptEvent extends Event {
-    prompt(): Promise<void>;
-    userChoice: Promise<{
-      outcome: 'accepted' | 'dismissed';
-      platform: string;
-    }>;
-  }
+export interface PwaController {
+  online: boolean;
+  installAvailable: boolean;
+  showIosInstallHelp: boolean;
+  installError: string;
+  install: () => Promise<void>;
+}
 
-  let deferredInstallPrompt: BeforeInstallPromptEvent | undefined;
-  const installButton = document.getElementById('install-app') as HTMLButtonElement | null;
-  const iosInstallHelp = document.getElementById('ios-install-help') as HTMLParagraphElement | null;
-
-  if (installButton) installButton.hidden = true;
-  if (iosInstallHelp) iosInstallHelp.hidden = true;
-
+function isIosSafari(): boolean {
   const isIosDevice =
     /iPad|iPhone|iPod/.test(navigator.userAgent) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const isSafari =
     /Safari/.test(navigator.userAgent) &&
     !/CriOS|FxiOS|EdgiOS|OPiOS/.test(navigator.userAgent);
+  return isIosDevice && isSafari;
+}
 
-  window.addEventListener('beforeinstallprompt', event => {
-    event.preventDefault();
-    deferredInstallPrompt = event as BeforeInstallPromptEvent;
-    
-    if (installButton) installButton.hidden = false;
-    if (iosInstallHelp) iosInstallHelp.hidden = true;
-  });
+export function usePwa(): PwaController {
+  const [online, setOnline] = useState(() => navigator.onLine);
+  const [installAvailable, setInstallAvailable] = useState(false);
+  const [showIosInstallHelp, setShowIosInstallHelp] = useState(isIosSafari);
+  const [installError, setInstallError] = useState('');
+  const deferredPrompt = useRef<BeforeInstallPromptEvent | undefined>(undefined);
 
-  if (installButton) {
-    installButton.addEventListener('click', async () => {
-      if (!deferredInstallPrompt) return;
+  useEffect(() => {
+    const registerServiceWorker = (): void => {
+      if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+        void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`)
+          .then(registration => console.log('Workbox SW registrado:', registration.scope))
+          .catch(error => console.error('Error al registrar SW:', error));
+      }
+    };
+    const updateOnline = (): void => setOnline(true);
+    const updateOffline = (): void => setOnline(false);
+    const handleInstallPrompt = (event: Event): void => {
+      event.preventDefault();
+      deferredPrompt.current = event as BeforeInstallPromptEvent;
+      setInstallAvailable(true);
+      setShowIosInstallHelp(false);
+      setInstallError('');
+    };
+    const handleAppInstalled = (): void => {
+      deferredPrompt.current = undefined;
+      setInstallAvailable(false);
+      setShowIosInstallHelp(false);
+    };
 
-      const installPrompt = deferredInstallPrompt;
-      deferredInstallPrompt = undefined;
-      installButton.hidden = true;
+    if (document.readyState === 'complete') {
+      registerServiceWorker();
+    } else {
+      window.addEventListener('load', registerServiceWorker, { once: true });
+    }
+    window.addEventListener('online', updateOnline);
+    window.addEventListener('offline', updateOffline);
+    window.addEventListener('beforeinstallprompt', handleInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+    return () => {
+      window.removeEventListener('load', registerServiceWorker);
+      window.removeEventListener('online', updateOnline);
+      window.removeEventListener('offline', updateOffline);
+      window.removeEventListener('beforeinstallprompt', handleInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
 
-      await installPrompt.prompt();
-      const choice = await installPrompt.userChoice;
+  const install = useCallback(async (): Promise<void> => {
+    const prompt = deferredPrompt.current;
+    if (!prompt) return;
+    deferredPrompt.current = undefined;
+    setInstallAvailable(false);
+    setInstallError('');
+    try {
+      await prompt.prompt();
+      const choice = await prompt.userChoice;
       console.info('Resultado de instalación:', choice.outcome);
-    });
-  }
+    } catch (error) {
+      console.error('No se pudo completar la instalación de la PWA:', error);
+      setInstallError(error instanceof Error
+        ? `No se pudo completar la instalación: ${error.message}`
+        : 'No se pudo completar la instalación.');
+    }
+  }, []);
 
-  window.addEventListener('appinstalled', () => {
-    deferredInstallPrompt = undefined;
-    if (installButton) installButton.hidden = true;
-    if (iosInstallHelp) iosInstallHelp.hidden = true;
-  });
-
-  if (isIosDevice && isSafari && iosInstallHelp) {
-    iosInstallHelp.hidden = false;
-  }
-
+  return { online, installAvailable, showIosInstallHelp, installError, install };
 }
