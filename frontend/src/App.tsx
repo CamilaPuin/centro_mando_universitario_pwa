@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import { inicializarAsignaturas } from './features/asignaturas';
 import { inicializarAutenticacion } from './features/auth';
 import { inicializarNavegacion } from './features/navegacion';
-import { inicializarNotas } from './features/notas';
 import { inicializarNotificaciones } from './features/notificaciones';
 import { inicializarPomodoro } from './features/pomodoro';
 import { inicializarPerfil } from './features/profile';
-import { inicializarProgreso } from './features/progreso';
 import { inicializarPwa } from './features/pwa';
 import { inicializarSincronizacion } from './features/sync';
 import { inicializarTema } from './features/tema';
 import { abrirBaseDeDatos } from './utils/db';
-import { obtenerContenidoAplicacion } from './ui/renderizar-aplicacion';
 import { NavegacionTabs } from './ui/NavegacionTabs';
 import { Encabezado } from './ui/Encabezado';
+import { ModuloAsignaturas } from './ui/modulos/asignaturas';
 import { ModuloCalendario } from './ui/modulos/calendario';
+import { DialogoCuenta } from './ui/modulos/cuenta';
+import { ModuloDispositivo } from './ui/modulos/dispositivo';
+import { ModuloEntregas } from './ui/modulos/entregas';
+import { ModuloNotas } from './ui/modulos/notas';
+import { ModuloPomodoro } from './ui/modulos/pomodoro';
+import { ModuloProgreso } from './ui/modulos/progreso';
 import { ModuloResumen } from './ui/modulos/resumen';
 
 export function App() {
@@ -82,28 +85,17 @@ export function App() {
     const root = document.getElementById('app');
     root?.addEventListener('click', handleTabClick);
 
-    inicializarNotas(databaseReady);
     inicializarPomodoro(databaseReady);
-    inicializarAsignaturas(databaseReady);
-    inicializarSincronizacion(databaseReady);
+    const limpiarSincronizacion = inicializarSincronizacion(databaseReady);
     inicializarNotificaciones(databaseReady);
-    inicializarProgreso(databaseReady);
     inicializarPerfil(databaseReady);
 
     return () => {
       root?.removeEventListener('click', handleTabClick);
       limpiarNavegacion();
+      limpiarSincronizacion();
     };
   }, []);
-
-  const contenido = useMemo(obtenerContenidoAplicacion, []);
-  const markup = useMemo(() => ({
-    vistas: contenido.vistas.map(vista => ({
-      ...vista,
-      html: { __html: vista.contenido }
-    })),
-    dialogoCuenta: { __html: contenido.dialogoCuenta }
-  }), [contenido]);
 
   return (
     <div className="app-container">
@@ -111,17 +103,15 @@ export function App() {
       <main id="main-content">
         <NavegacionTabs tabActiva={tabActiva} />
         <ModuloResumen activo={tabActiva === 'tab-resumen'} databaseReady={databaseReady} />
+        <ModuloAsignaturas activo={tabActiva === 'tab-asignaturas'} databaseReady={databaseReady} />
+        <ModuloEntregas activo={tabActiva === 'tab-entregas'} databaseReady={databaseReady} />
         <ModuloCalendario activo={tabActiva === 'tab-calendario'} databaseReady={databaseReady} />
-        {markup.vistas.map(({ id, html }) => (
-          <section
-            key={id}
-            id={id}
-            className={tabActiva === id ? 'tab-view active' : 'tab-view'}
-            dangerouslySetInnerHTML={html}
-          />
-        ))}
+        <ModuloProgreso activo={tabActiva === 'tab-progreso'} databaseReady={databaseReady} />
+        <ModuloNotas activo={tabActiva === 'tab-notas'} databaseReady={databaseReady} />
+        <ModuloPomodoro activo={tabActiva === 'tab-pomodoro'} />
+        <ModuloDispositivo activo={tabActiva === 'tab-dispositivo'} />
       </main>
-      <div dangerouslySetInnerHTML={markup.dialogoCuenta} />
+      <DialogoCuenta />
       <footer className="app-footer">
         Centro de Mando Universitario Personal • PWA de Gestión Académica • 2026
       </footer>

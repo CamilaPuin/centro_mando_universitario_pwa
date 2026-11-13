@@ -17,6 +17,13 @@ test('production build contains the React app, PWA manifest, and service worker'
   assert.match(applicationBundle, /tab-resumen/);
   assert.match(applicationBundle, /tab-dispositivo/);
   assert.match(applicationBundle, /Así va tu día/);
+  assert.match(applicationBundle, /Mis asignaturas/);
+  assert.match(applicationBundle, /Entrega o evaluación/);
+  assert.match(applicationBundle, /Metas semanales/);
+  assert.match(applicationBundle, /Bitácora rápida por asignatura/);
+  assert.match(applicationBundle, /Cronómetro y Modo Pomodoro/);
+  assert.match(applicationBundle, /Recordatorios de estudio/);
+  assert.match(applicationBundle, /Inicia sesión o crea tu cuenta/);
   assert.match(applicationBundle, /Cambiar a modo oscuro/);
   assert.ok(readFileSync(new URL('sw.js', distDirectory), 'utf8').length > 0);
 });

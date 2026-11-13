@@ -2,160 +2,90 @@ import {
   eliminarApunte,
   guardarApunte,
   listarAsignaturas,
-  listarApuntes
+  listarApuntes,
+  type ApunteMateria
 } from '../utils/db';
 import { apiRequest, isAuthenticated } from '../services/api';
 
-export function inicializarNotas(databaseReady: Promise<IDBDatabase | undefined>): void {
-  const form = document.getElementById('note-form') as HTMLFormElement | null;
-  const idInput = document.getElementById('note-id') as HTMLInputElement | null;
-  const subjectSelect = document.getElementById('note-subject') as HTMLSelectElement | null;
-  const contentInput = document.getElementById('note-content') as HTMLTextAreaElement | null;
-  const cancelButton = document.getElementById('note-cancel-edit') as HTMLButtonElement | null;
-  const status = document.getElementById('note-status');
-  const notesList = document.getElementById('subject-notes-list');
-  if (!form || !idInput || !subjectSelect || !contentInput || !cancelButton || !status || !notesList) return;
-  const noteForm = form;
-  const noteIdInput = idInput;
-  const noteSubjectSelect = subjectSelect;
-  const noteContentInput = contentInput;
-  const noteCancelButton = cancelButton;
-  const noteStatus = status;
-  const noteList = notesList;
+export interface DatosApuntes {
+  asignaturas: string[];
+  apuntes: ApunteMateria[];
+}
 
-  function resetForm(): void {
-    noteForm.reset();
-    noteIdInput.value = '';
-    noteCancelButton.hidden = true;
-    noteForm.querySelector<HTMLButtonElement>('button[type="submit"]')!.textContent = 'Guardar apunte';
-  }
+export async function obtenerDatosApuntes(
+  databaseReady: Promise<IDBDatabase | undefined>
+): Promise<DatosApuntes> {
+  const db = await databaseReady;
+  if (!db) throw new Error('Los apuntes no están disponibles porque IndexedDB no pudo abrirse.');
+  const [asignaturas, apuntes] = await Promise.all([
+    listarAsignaturas(db),
+    listarApuntes(db)
+  ]);
+  return {
+    asignaturas: asignaturas.map(asignatura => asignatura.nombre),
+    apuntes: apuntes.sort((a, b) => b.actualizadoEn.localeCompare(a.actualizadoEn))
+  };
+}
 
-  async function renderNotes(): Promise<void> {
-    const db = await databaseReady;
-    if (!db) {
-      noteStatus.textContent = 'Los apuntes no están disponibles porque IndexedDB no pudo abrirse.';
-      return;
-    }
-    const notes = (await listarApuntes(db)).sort((a, b) =>
-      b.actualizadoEn.localeCompare(a.actualizadoEn)
-    );
-    noteList.replaceChildren();
-    if (!notes.length) {
-      noteList.append(Object.assign(document.createElement('p'), {
-        className: 'dashboard-empty',
-        textContent: 'Aún no tienes apuntes. Crea uno asociado a una asignatura.'
-      }));
-      return;
-    }
-    for (const note of notes) {
-      const card = document.createElement('article');
-      card.className = 'kanban-card local-delivery-card';
-      const title = document.createElement('h3');
-      title.textContent = note.asignatura;
-      const body = document.createElement('p');
-      body.className = 'note-content';
-      body.textContent = note.contenido;
-      const date = document.createElement('small');
-      date.textContent = `Actualizado: ${new Date(note.actualizadoEn).toLocaleString()}`;
-      const actions = document.createElement('div');
-      actions.className = 'profile-actions';
-      const edit = document.createElement('button');
-      edit.className = 'btn btn-load';
-      edit.type = 'button';
-      edit.textContent = 'Editar';
-      edit.addEventListener('click', () => {
-        noteIdInput.value = String(note.id);
-        noteSubjectSelect.value = note.asignatura;
-        noteContentInput.value = note.contenido;
-        noteCancelButton.hidden = false;
-        noteForm.querySelector<HTMLButtonElement>('button[type="submit"]')!.textContent = 'Guardar cambios';
-        noteContentInput.focus();
+export async function guardarApunteMateria(
+  databaseReady: Promise<IDBDatabase | undefined>,
+  asignaturaNombre: string,
+  contenidoOriginal: string,
+  apunteId?: number
+): Promise<string> {
+  const db = await databaseReady;
+  if (!db) throw new Error('IndexedDB no está disponible.');
+  if (!asignaturaNombre) throw new Error('Selecciona una asignatura.');
+  const contenido = contenidoOriginal.trim();
+  if (!contenido) throw new Error('Escribe el contenido del apunte.');
+
+  const existing = apunteId === undefined
+    ? undefined
+    : (await listarApuntes(db)).find(apunte => apunte.id === apunteId);
+  const asignaturas = await listarAsignaturas(db);
+  const asignatura = asignaturas.find(item => item.nombre === asignaturaNombre);
+  const guardado = await guardarApunte(db, {
+    ...(apunteId === undefined ? {} : { id: apunteId }),
+    ...(existing?.backendId === undefined ? {} : { backendId: existing.backendId }),
+    syncPending: true,
+    ...(asignatura?.id === undefined ? {} : { asignaturaId: asignatura.id }),
+    asignatura: asignaturaNombre,
+    contenido,
+    ...(existing ? { creadoEn: existing.creadoEn } : {})
+  });
+
+  if (isAuthenticated() && navigator.onLine && asignatura?.backendId) {
+    try {
+      const remoto = await apiRequest<{ id: number }>(`/subjects/${asignatura.backendId}/notes`, {
+        method: 'POST',
+        body: JSON.stringify({ title: 'Apunte', content: contenido })
       });
-      const remove = document.createElement('button');
-      remove.className = 'record-delete';
-      remove.type = 'button';
-      remove.textContent = 'Eliminar';
-      remove.addEventListener('click', () => {
-        void (async () => {
-          try {
-            const database = await databaseReady;
-            if (!database || note.id === undefined) throw new Error('No se pudo acceder al apunte.');
-            if (note.backendId && (!isAuthenticated() || !navigator.onLine)) {
-              throw new Error('Inicia sesión y recupera la conexión antes de eliminar este apunte.');
-            }
-            if (isAuthenticated() && navigator.onLine && note.backendId) {
-              await apiRequest<void>(`/subjects/notes/${note.backendId}`, { method: 'DELETE' });
-            }
-            await eliminarApunte(database, note.id);
-            noteStatus.textContent = 'Apunte eliminado.';
-            await renderNotes();
-          } catch (error) {
-            noteStatus.textContent = error instanceof Error ? error.message : 'No se pudo eliminar el apunte.';
-          }
-        })();
-      });
-      actions.append(edit, remove);
-      card.append(title, body, date, actions);
-      noteList.append(card);
-    }
-  }
-
-  noteForm.addEventListener('submit', event => {
-    event.preventDefault();
-    void (async () => {
-      try {
-        const db = await databaseReady;
-        if (!db) throw new Error('IndexedDB no está disponible.');
-        if (!noteSubjectSelect.value) throw new Error('Selecciona una asignatura.');
-        const contenido = noteContentInput.value.trim();
-        if (!contenido) throw new Error('Escribe el contenido del apunte.');
-        const id = noteIdInput.value ? Number(noteIdInput.value) : undefined;
-        const existing = id === undefined
-          ? undefined
-          : (await listarApuntes(db)).find(note => note.id === id);
-        const subjectName = noteSubjectSelect.value;
-        const assignments = await listarAsignaturas(db);
-        const assignment = assignments.find(item => item.nombre === subjectName);
-        const saved = await guardarApunte(db, {
-          ...(id === undefined ? {} : { id }),
-          ...(existing?.backendId === undefined ? {} : { backendId: existing.backendId }),
-          syncPending: true,
-          ...(assignment?.id === undefined ? {} : { asignaturaId: assignment.id }),
-          asignatura: subjectName,
-          contenido,
-          ...(existing ? { creadoEn: existing.creadoEn } : {})
-        });
-        resetForm();
-        if (isAuthenticated() && navigator.onLine && assignment?.backendId) {
-          try {
-            const remote = await apiRequest<{ id: number }>(`/subjects/${assignment.backendId}/notes`, {
-              method: 'POST',
-              body: JSON.stringify({ title: 'Apunte', content: contenido })
-            });
-            if (existing?.backendId) {
-              await apiRequest<void>(`/subjects/notes/${existing.backendId}`, { method: 'DELETE' });
-            }
-            await guardarApunte(db, { ...saved, backendId: remote.id, syncPending: false });
-            noteStatus.textContent = 'Apunte guardado.';
-          } catch (error) {
-            noteStatus.textContent = `Apunte guardado. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
-          }
-        } else {
-          noteStatus.textContent = isAuthenticated()
-            ? 'Apunte guardado. Se sincronizará automáticamente cuando vuelva la conexión.'
-            : 'Apunte guardado en este dispositivo.';
-        }
-        await renderNotes();
-      } catch (error) {
-        noteStatus.textContent = error instanceof Error ? error.message : 'No se pudo guardar el apunte.';
+      if (existing?.backendId) {
+        await apiRequest<void>(`/subjects/notes/${existing.backendId}`, { method: 'DELETE' });
       }
-    })();
-  });
+      await guardarApunte(db, { ...guardado, backendId: remoto.id, syncPending: false });
+      return 'Apunte guardado.';
+    } catch (error) {
+      return `Apunte guardado. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
+    }
+  }
 
-  noteCancelButton.addEventListener('click', resetForm);
-  window.addEventListener('asignaturas-actualizadas', () => {
-    void renderNotes();
-  });
-  window.addEventListener('auth-changed', () => void renderNotes());
-  void renderNotes();
+  return isAuthenticated()
+    ? 'Apunte guardado. Se sincronizará automáticamente cuando vuelva la conexión.'
+    : 'Apunte guardado en este dispositivo.';
+}
+
+export async function eliminarApunteMateria(
+  databaseReady: Promise<IDBDatabase | undefined>,
+  apunte: ApunteMateria
+): Promise<void> {
+  const db = await databaseReady;
+  if (!db || apunte.id === undefined) throw new Error('No se pudo acceder al apunte.');
+  if (apunte.backendId && (!isAuthenticated() || !navigator.onLine)) {
+    throw new Error('Inicia sesión y recupera la conexión antes de eliminar este apunte.');
+  }
+  if (isAuthenticated() && navigator.onLine && apunte.backendId) {
+    await apiRequest<void>(`/subjects/notes/${apunte.backendId}`, { method: 'DELETE' });
+  }
+  await eliminarApunte(db, apunte.id);
 }
