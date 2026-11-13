@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { inicializarAsignaturas } from './features/asignaturas';
 import { inicializarAutenticacion } from './features/auth';
-import { inicializarCalendario } from './features/calendario';
 import { inicializarNavegacion } from './features/navegacion';
 import { inicializarNotas } from './features/notas';
 import { inicializarNotificaciones } from './features/notificaciones';
@@ -15,6 +14,7 @@ import { abrirBaseDeDatos } from './utils/db';
 import { obtenerContenidoAplicacion } from './ui/renderizar-aplicacion';
 import { NavegacionTabs } from './ui/NavegacionTabs';
 import { Encabezado } from './ui/Encabezado';
+import { ModuloCalendario } from './ui/modulos/calendario';
 import { ModuloResumen } from './ui/modulos/resumen';
 
 export function App() {
@@ -87,7 +87,6 @@ export function App() {
     inicializarAsignaturas(databaseReady);
     inicializarSincronizacion(databaseReady);
     inicializarNotificaciones(databaseReady);
-    inicializarCalendario(databaseReady);
     inicializarProgreso(databaseReady);
     inicializarPerfil(databaseReady);
 
@@ -112,6 +111,7 @@ export function App() {
       <main id="main-content">
         <NavegacionTabs tabActiva={tabActiva} />
         <ModuloResumen activo={tabActiva === 'tab-resumen'} databaseReady={databaseReady} />
+        <ModuloCalendario activo={tabActiva === 'tab-calendario'} databaseReady={databaseReady} />
         {markup.vistas.map(({ id, html }) => (
           <section
             key={id}

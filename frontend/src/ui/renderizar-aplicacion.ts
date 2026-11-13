@@ -1,5 +1,4 @@
 import { renderizarModuloAsignaturas } from './modulos/asignaturas';
-import { renderizarModuloCalendario } from './modulos/calendario';
 import { renderizarModuloDispositivo } from './modulos/dispositivo';
 import { renderizarModuloEntregas } from './modulos/entregas';
 import { renderizarModuloNotas } from './modulos/notas';
@@ -32,7 +31,6 @@ export function obtenerContenidoAplicacion(): ContenidoAplicacion {
   const modulos = [
     ['tab-asignaturas', renderizarModuloAsignaturas()],
     ['tab-entregas', renderizarModuloEntregas()],
-    ['tab-calendario', renderizarModuloCalendario()],
     ['tab-pomodoro', renderizarModuloPomodoro()],
     ['tab-notas', renderizarModuloNotas()],
     ['tab-progreso', renderizarModuloProgreso()],
