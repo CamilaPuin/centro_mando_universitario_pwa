@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: centro-mando-api
+    runtime: docker
+    plan: free
+    region: ohio
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        value: "jdbc:postgresql://${{ centro-mando-db.HOST }}:${{ centro-mando-db.PORT }}/${{ centro-mando-db.DATABASE }}?sslmode=require"
+      - key: SPRING_DATASOURCE_USERNAME
+        fromDatabase:
+          name: centro-mando-db
+          property: user
+      - key: SPRING_DATASOURCE_PASSWORD
+        fromDatabase:
+          name: centro-mando-db
+          property: password
+      - key: APP_CORS_ALLOWED_ORIGINS
+        value: https://camilapuin.github.io
+      - key: JWT_SECRET_KEY
+        sync: false
+
+databases:
+  - name: centro-mando-db
+    databaseName: centro_mando
+    user: centro_mando
+    plan: free
+    region: ohio
+    postgresMajorVersion: "15"
+    ipAllowList: []

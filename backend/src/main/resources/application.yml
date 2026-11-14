@@ -33,4 +33,13 @@ springdoc:
     path: /v3/api-docs
 
 server:
-  port: 8080
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
