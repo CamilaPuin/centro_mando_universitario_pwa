@@ -91,15 +91,21 @@ export async function apiRequest<T>(
   }
   if (!response.ok) {
     if (response.status === 401 && authenticated) clearAuthSession();
-    let message = `No se pudo completar la solicitud (código ${response.status}).`;
-    try {
-      const errorBody: unknown = await response.json();
-      if (typeof errorBody === 'object' && errorBody !== null) {
-        const body = errorBody as { message?: unknown; error?: unknown; detail?: unknown };
-        const detail = body.message ?? body.detail ?? body.error;
-        if (typeof detail === 'string' && detail.trim()) message = detail;
+    const isRegistrationRequest = path === '/users/register';
+    let message = response.status === 405 && isRegistrationRequest
+      ? 'No se pudo crear tu cuenta porque el servicio de registro no está disponible en este momento. Inténtalo más tarde.'
+      : `No se pudo completar la solicitud (código ${response.status}).`;
+    if (response.status !== 405) {
+      try {
+        const errorBody: unknown = await response.json();
+        if (typeof errorBody === 'object' && errorBody !== null) {
+          const body = errorBody as { message?: unknown; error?: unknown; detail?: unknown };
+          const detail = body.message ?? body.detail ?? body.error;
+          if (typeof detail === 'string' && detail.trim()) message = detail;
+        }
+      } catch {
+        // The response may not have a JSON body.
       }
-    } catch {
     }
     throw new Error(message);
   }
