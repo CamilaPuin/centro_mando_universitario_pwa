@@ -3,7 +3,7 @@ spring:
     name: command-center
 
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/centro_mando}
+    url: ${SPRING_DATASOURCE_URL:${DATABASE_URL:jdbc:postgresql://localhost:5432/centro_mando}}
     username: ${SPRING_DATASOURCE_USERNAME:centro_mando}
     password: ${SPRING_DATASOURCE_PASSWORD:local-dev-password-change-me}
     driver-class-name: org.postgresql.Driver

@@ -7,11 +7,12 @@ Spring Boot 3 REST API using PostgreSQL for student planning, coursework, study 
 The backend and PostgreSQL 15 database can be started together with Docker Compose:
 
 ```powershell
-Copy-Item .env.example .env
 docker compose up --build
 ```
 
-Run these commands from the `backend/` directory. The example `.env` values are for local development only; do not use them in a public deployment. Flyway creates the PostgreSQL schema when the API starts. The database data is stored in the `postgres_data` Docker volume.
+Run this command from the `backend/` directory. Compose uses local development defaults; set overrides in a local `.env` file if needed, and do not use local credentials in a public deployment. Flyway creates the PostgreSQL schema when the API starts. The database data is stored in the `postgres_data` Docker volume.
+
+To run the API against the Neon branch configured in `backend/.env.local`, use `docker compose --env-file .env.local up --build` from `backend/`. The API uses the pooled `DATABASE_URL`; Flyway uses `DATABASE_URL_UNPOOLED` for migrations. The local PostgreSQL service remains available for the default development setup.
 
 Adminer is available at `http://localhost:8081` for local database inspection. Select PostgreSQL as the database system and `db` as the server when connecting from Adminer.
 
@@ -25,12 +26,10 @@ Use **Conectar con el servidor** in the app header to register or sign in. Authe
 
 ## Hosted deployment
 
-Create a PostgreSQL 15 database and deploy this backend in a compatible hosting service. PostgreSQL 15 matches the Flyway version managed by the current Spring Boot configuration. Prefer the database's private/internal connection address when the database and backend are hosted in the same region. Configure these backend environment variables using the values supplied by the hosting provider:
+The Blueprint is in `backend/render.yaml`. In Render, create a Blueprint from this repository and set its Blueprint Path to `backend/render.yaml`. Set the prompted secrets on the `centro-mando-api` service:
 
-- `SPRING_DATASOURCE_URL`: JDBC URL, for example `jdbc:postgresql://HOST:PORT/DATABASE`
-- `SPRING_DATASOURCE_USERNAME`
-- `SPRING_DATASOURCE_PASSWORD`
-- `JWT_SECRET_KEY`: a stable, randomly generated secret
-- `APP_CORS_ALLOWED_ORIGINS`: the frontend's exact origin, without a path or trailing slash
+- `DATABASE_URL`: Neon pooled connection string for application queries.
+- `DATABASE_URL_UNPOOLED`: Neon direct connection string for Flyway migrations.
+- `JWT_SECRET_KEY`: a stable, randomly generated secret.
 
-If the provider requires TLS, add its documented PostgreSQL SSL option to the JDBC URL. Do not use the local Compose credentials in production. Flyway applies the schema migrations during startup.
+The connection strings are stored in the ignored `backend/.env.local`; copy them directly from there into Render's environment settings, not into source control. `APP_CORS_ALLOWED_ORIGINS` is already set to the GitHub Pages frontend origin; update it if the frontend URL changes. Deploy the service and verify its `/actuator/health` endpoint. The first startup runs Flyway migrations against the configured Neon branch, so confirm the Render variables point to the intended project and branch before deploying.
