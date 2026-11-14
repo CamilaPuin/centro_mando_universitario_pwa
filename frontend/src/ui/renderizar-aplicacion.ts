@@ -1,47 +1,44 @@
-import { renderizarEncabezado, renderizarNavegacion, renderizarPie } from './estructura';
 import { renderizarModuloAsignaturas } from './modulos/asignaturas';
-import { renderizarModuloCalendario } from './modulos/calendario';
 import { renderizarModuloDispositivo } from './modulos/dispositivo';
 import { renderizarModuloEntregas } from './modulos/entregas';
 import { renderizarModuloNotas } from './modulos/notas';
 import { renderizarModuloPomodoro } from './modulos/pomodoro';
 import { renderizarModuloProgreso } from './modulos/progreso';
-import { renderizarModuloResumen } from './modulos/resumen';
 import { renderizarDialogoCuenta } from './modulos/cuenta';
 
-export function renderizarAplicacion(): void {
-  const app = document.getElementById('app');
-  if (!app) {
-    throw new Error('No se encontró el contenedor raíz #app.');
+export interface VistaAplicacion {
+  id: string;
+  contenido: string;
+}
+
+export interface ContenidoAplicacion {
+  vistas: VistaAplicacion[];
+  dialogoCuenta: string;
+}
+
+function extraerContenidoVista(id: string, markup: string): VistaAplicacion {
+  const markupLimpio = markup.trim();
+  const inicioContenido = markupLimpio.indexOf('>');
+  const finContenido = markupLimpio.lastIndexOf('</section>');
+  if (!markupLimpio.startsWith(`<section id="${id}"`) || inicioContenido === -1 || finContenido < inicioContenido) {
+    throw new Error(`El módulo ${id} no tiene una sección raíz válida.`);
   }
 
-  const fechaHoy = new Date().toLocaleDateString('es-ES', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-  const fechaFormateada = fechaHoy.charAt(0).toUpperCase() + fechaHoy.slice(1);
-  const modulos = [
-    renderizarModuloResumen(),
-    renderizarModuloAsignaturas(),
-    renderizarModuloEntregas(),
-    renderizarModuloCalendario(),
-    renderizarModuloPomodoro(),
-    renderizarModuloNotas(),
-    renderizarModuloProgreso(),
-    renderizarModuloDispositivo()
-  ];
+  return { id, contenido: markupLimpio.slice(inicioContenido + 1, finContenido) };
+}
 
-  app.innerHTML = `
-    <div class="app-container">
-      ${renderizarEncabezado(fechaFormateada)}
-      <main id="main-content">
-        ${renderizarNavegacion()}
-        ${modulos.join('')}
-      </main>
-      ${renderizarDialogoCuenta()}
-      ${renderizarPie()}
-    </div>
-  `;
+export function obtenerContenidoAplicacion(): ContenidoAplicacion {
+  const modulos = [
+    ['tab-asignaturas', renderizarModuloAsignaturas()],
+    ['tab-entregas', renderizarModuloEntregas()],
+    ['tab-pomodoro', renderizarModuloPomodoro()],
+    ['tab-notas', renderizarModuloNotas()],
+    ['tab-progreso', renderizarModuloProgreso()],
+    ['tab-dispositivo', renderizarModuloDispositivo()]
+  ] as const;
+
+  return {
+    vistas: modulos.map(([id, markup]) => extraerContenidoVista(id, markup)),
+    dialogoCuenta: renderizarDialogoCuenta()
+  };
 }

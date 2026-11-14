@@ -1,6 +1,4 @@
-export function inicializarNavegacion(): void {
-  const tabButtons = document.querySelectorAll<HTMLButtonElement>('[data-tab]');
-  const tabViews = document.querySelectorAll<HTMLElement>('.tab-view');
+export function inicializarNavegacion(): () => void {
   const headerMenus = [
     {
       button: document.getElementById('tools-menu-button') as HTMLButtonElement | null,
@@ -30,15 +28,8 @@ export function inicializarNavegacion(): void {
     });
   };
 
-  const activeTab = document.querySelector<HTMLElement>('.tab-view.active')?.id;
-  document.querySelectorAll<HTMLButtonElement>('#mobile-nav-menu [data-tab]').forEach(menuItem => {
-    if (menuItem.getAttribute('data-tab') === activeTab) {
-      menuItem.setAttribute('aria-current', 'page');
-    }
-  });
-
-  headerMenus.forEach(({ button, menu }) => {
-    button.addEventListener('click', () => {
+  const menuClickHandlers = headerMenus.map(({ button, menu }) => {
+    const handleClick = (): void => {
       const shouldOpen = menu.hidden;
       closeHeaderMenus();
       menu.hidden = !shouldOpen;
@@ -48,78 +39,40 @@ export function inicializarNavegacion(): void {
       } else if (button.id === 'profile-menu-button') {
         button.setAttribute('aria-label', shouldOpen ? 'Cerrar menú de perfil' : 'Abrir menú de perfil');
       }
-    });
+    };
+    button.addEventListener('click', handleClick);
+    return { button, handleClick };
   });
 
-  window.addEventListener('close-header-menus', closeHeaderMenus);
-  document.addEventListener('pointerdown', event => {
+  const handleCloseMenus = (): void => closeHeaderMenus();
+  const handlePointerDown = (event: PointerEvent): void => {
     const target = event.target;
     if (target instanceof Element && !target.closest('.header-menu')) closeHeaderMenus();
-  });
-  document.addEventListener('keydown', event => {
+  };
+  const handleKeyDown = (event: KeyboardEvent): void => {
     if (event.key !== 'Escape') return;
     const openMenu = headerMenus.find(({ menu }) => !menu.hidden);
     if (!openMenu) return;
     closeHeaderMenus();
     openMenu.button.focus();
-  });
+  };
+  window.addEventListener('close-header-menus', handleCloseMenus);
+  document.addEventListener('pointerdown', handlePointerDown);
+  document.addEventListener('keydown', handleKeyDown);
 
-  tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      tabButtons.forEach(b => {
-        b.classList.remove('active');
-        b.removeAttribute('aria-current');
-      });
-      tabViews.forEach(v => v.classList.remove('active'));
+  const checkboxes = document.querySelectorAll<HTMLInputElement>('.delivery-check');
+  const handleDeliveryChange = (event: Event): void => {
+    const checkbox = event.currentTarget;
+    if (!(checkbox instanceof HTMLInputElement)) return;
+    checkbox.closest<HTMLElement>('.delivery-item')?.classList.toggle('completed', checkbox.checked);
+  };
+  checkboxes.forEach(checkbox => checkbox.addEventListener('change', handleDeliveryChange));
 
-      const targetId = btn.getAttribute('data-tab');
-      if (targetId) {
-        document.getElementById(targetId)?.classList.add('active');
-        const primaryTab = document.querySelector<HTMLButtonElement>(`.tab-btn[data-tab="${targetId}"]`);
-        primaryTab?.classList.add('active');
-        primaryTab?.setAttribute('aria-current', 'page');
-        if (btn.classList.contains('popover-item')) btn.setAttribute('aria-current', 'page');
-
-        const toolsButton = document.getElementById('tools-menu-button');
-        const profileButton = document.getElementById('profile-menu-button');
-        if (targetId === 'tab-pomodoro' || targetId === 'tab-notas') {
-          toolsButton?.setAttribute('aria-current', 'page');
-        } else {
-          toolsButton?.removeAttribute('aria-current');
-        }
-        if (targetId === 'tab-dispositivo') {
-          profileButton?.setAttribute('aria-current', 'page');
-        } else {
-          profileButton?.removeAttribute('aria-current');
-        }
-        document.querySelectorAll<HTMLButtonElement>('#mobile-nav-menu [data-tab]').forEach(menuItem => {
-          if (menuItem.getAttribute('data-tab') === targetId) {
-            menuItem.setAttribute('aria-current', 'page');
-          } else {
-            menuItem.removeAttribute('aria-current');
-          }
-        });
-
-        closeHeaderMenus();
-        const focusTargetId = btn.getAttribute('data-focus');
-        if (focusTargetId) document.getElementById(focusTargetId)?.focus();
-        if (targetId !== 'tab-pomodoro' && document.body.classList.contains('focus-mode')) {
-          document.body.classList.remove('focus-mode');
-          const focusButton = document.getElementById('btn-focus-mode');
-          focusButton?.setAttribute('aria-pressed', 'false');
-          if (focusButton) focusButton.textContent = 'Activar modo enfoque';
-        }
-      }
-    });
-  });
-
-  document.querySelectorAll<HTMLInputElement>('.delivery-check').forEach(checkbox => {
-    checkbox.addEventListener('change', (e) => {
-      const target = e.target as HTMLInputElement;
-      const parent = target.closest<HTMLElement>('.delivery-item');
-      if (parent) {
-        parent.classList.toggle('completed', target.checked);
-      }
-    });
-  });
+  return () => {
+    menuClickHandlers.forEach(({ button, handleClick }) => button.removeEventListener('click', handleClick));
+    window.removeEventListener('close-header-menus', handleCloseMenus);
+    document.removeEventListener('pointerdown', handlePointerDown);
+    document.removeEventListener('keydown', handleKeyDown);
+    checkboxes.forEach(checkbox => checkbox.removeEventListener('change', handleDeliveryChange));
+  };
 }
