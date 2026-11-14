@@ -4,18 +4,15 @@ workbox.setConfig({
   modulePathPrefix: new URL('./lib/workbox-v7.4.1/', self.registration.scope).href
 });
 
-const { precacheAndRoute, cleanupOutdatedCaches, createHandlerBoundToURL } = workbox.precaching;
-const { registerRoute, NavigationRoute } = workbox.routing;
+const { precacheAndRoute, cleanupOutdatedCaches } = workbox.precaching;
+const { registerRoute } = workbox.routing;
 const { CacheFirst, NetworkOnly } = workbox.strategies;
 const { ExpirationPlugin } = workbox.expiration;
 const { clientsClaim } = workbox.core;
 
-precacheAndRoute([{"revision":"3a16ccba8e42c9dc01b9816586dbf8af","url":"index.html"},{"revision":"792e1e6d5a9abc9dedb0f35b024979d1","url":"assets/index-DIQBg-pw.css"},{"revision":"480b47e803c324331e90488562042d33","url":"assets/index-DfVUgywW.js"},{"revision":"922f09f25d919374ba90d7209c2a5600","url":"manifest.json"},{"revision":"e2270cb84e3511e3b8502e72dabc6f79","url":"icons/icon-512.png"},{"revision":"8ac8848cabc920612e0d9eaa1c0b9dc6","url":"icons/icon-192.png"},{"revision":"4a5a8c870b374dd6e76275c2d968e1ea","url":"lib/workbox-v7.4.1/workbox-sw.js"},{"revision":"317fc89483d1f033fd1a9f123546170c","url":"lib/workbox-v7.4.1/workbox-core.prod.js"},{"revision":"2b856c81714a9f5ff2f7187caac1fd00","url":"lib/workbox-v7.4.1/workbox-precaching.prod.js"},{"revision":"02c6cad79d72343ab97475f26c4d76ec","url":"lib/workbox-v7.4.1/workbox-routing.prod.js"},{"revision":"f24892c99eeb13fe411298ccf782b6b0","url":"lib/workbox-v7.4.1/workbox-strategies.prod.js"},{"revision":"9afc7d7e8fbce3cde88a719439947c5c","url":"lib/workbox-v7.4.1/workbox-expiration.prod.js"},{"revision":"4620a4e4197b51215e01fe55de7e8e68","url":"lib/workbox-v7.4.1/workbox-background-sync.prod.js"}]);
+precacheAndRoute([{"revision":"7dd873f6db20f99d34b7b581d7c59262","url":"index.html"},{"revision":"f0e4d2b5c253742ebe5a5cb783939b80","url":"assets/index-BMPVg00A.css"},{"revision":"9a27aa352dd6bbc4dd7f87e8182509a3","url":"assets/index-CTquN9ou.js"},{"revision":"9ed91d97049a884ccafed0a7a9aa1e96","url":"manifest.json"},{"revision":"e2270cb84e3511e3b8502e72dabc6f79","url":"icons/icon-512.png"},{"revision":"8ac8848cabc920612e0d9eaa1c0b9dc6","url":"icons/icon-192.png"},{"revision":"4a5a8c870b374dd6e76275c2d968e1ea","url":"lib/workbox-v7.4.1/workbox-sw.js"},{"revision":"317fc89483d1f033fd1a9f123546170c","url":"lib/workbox-v7.4.1/workbox-core.prod.js"},{"revision":"2b856c81714a9f5ff2f7187caac1fd00","url":"lib/workbox-v7.4.1/workbox-precaching.prod.js"},{"revision":"02c6cad79d72343ab97475f26c4d76ec","url":"lib/workbox-v7.4.1/workbox-routing.prod.js"},{"revision":"f24892c99eeb13fe411298ccf782b6b0","url":"lib/workbox-v7.4.1/workbox-strategies.prod.js"},{"revision":"9afc7d7e8fbce3cde88a719439947c5c","url":"lib/workbox-v7.4.1/workbox-expiration.prod.js"},{"revision":"4620a4e4197b51215e01fe55de7e8e68","url":"lib/workbox-v7.4.1/workbox-background-sync.prod.js"}]);
 cleanupOutdatedCaches();
 clientsClaim();
-
-const appShellUrl = new URL('index.html', self.registration.scope).pathname;
-registerRoute(new NavigationRoute(createHandlerBoundToURL(appShellUrl)));
 
 registerRoute(
   ({ url }) => url.origin === self.location.origin &&
