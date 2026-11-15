@@ -8,7 +8,7 @@ import {
   type Asignatura,
   type ClaseHorario
 } from '../utils/db';
-import { apiRequest, isAuthenticated } from '../services/api';
+import { apiRequest, isAuthenticated, isUserSessionActive } from '../services/api';
 
 const DIAS = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
 
@@ -158,7 +158,9 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
               const db = await databaseReady;
               if (!db || asignatura.id === undefined) throw new Error('No se pudo abrir el almacenamiento local.');
               if (asignatura.backendId && (!isAuthenticated() || !navigator.onLine)) {
-                throw new Error('Inicia sesión y recupera la conexión antes de eliminar esta asignatura sincronizada.');
+                throw new Error(isUserSessionActive()
+                  ? 'Recupera la conexión para eliminar esta asignatura sincronizada.'
+                  : 'Inicia sesión y recupera la conexión antes de eliminar esta asignatura sincronizada.');
               }
               if (isAuthenticated() && navigator.onLine && asignatura.backendId) {
                 await apiRequest<void>(`/subjects/${asignatura.backendId}`, { method: 'DELETE' });
@@ -220,7 +222,9 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
               const db = await databaseReady;
               if (!db || clase.id === undefined) throw new Error('No se pudo abrir el almacenamiento local.');
               if (clase.backendId && (!isAuthenticated() || !navigator.onLine)) {
-                throw new Error('Inicia sesión y recupera la conexión antes de eliminar esta clase sincronizada.');
+                throw new Error(isUserSessionActive()
+                  ? 'Recupera la conexión para eliminar esta clase sincronizada.'
+                  : 'Inicia sesión y recupera la conexión antes de eliminar esta clase sincronizada.');
               }
               if (isAuthenticated() && navigator.onLine && clase.backendId) {
                 await apiRequest<void>(`/calendar/class-schedules/${clase.backendId}`, { method: 'DELETE' });
@@ -290,7 +294,7 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
           subjectFeedback.textContent = `Asignatura guardada. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
         }
       } else {
-        subjectFeedback.textContent = isAuthenticated()
+        subjectFeedback.textContent = isUserSessionActive()
           ? 'Asignatura guardada. Se sincronizará automáticamente cuando vuelva la conexión.'
           : 'Asignatura guardada en este dispositivo.';
       }
@@ -372,7 +376,7 @@ export function inicializarAsignaturas(databaseReady: Promise<IDBDatabase | unde
           }
         }
       } else {
-        classFeedback.textContent = isAuthenticated()
+        classFeedback.textContent = isUserSessionActive()
           ? 'Horario guardado. Se sincronizará automáticamente cuando vuelva la conexión.'
           : 'Horario guardado en este dispositivo.';
       }

@@ -4,7 +4,7 @@ import {
   listarSesionesEstudio,
   obtenerMetas
 } from '../utils/db';
-import { apiRequest, isAuthenticated } from '../services/api';
+import { apiRequest, isAuthenticated, isUserSessionActive } from '../services/api';
 
 function mondayOf(date: Date): Date {
   const monday = new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -200,7 +200,7 @@ export function inicializarProgreso(databaseReady: Promise<IDBDatabase | undefin
             goalsStatus.textContent = `Metas guardadas. Se volverán a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
           }
         } else {
-          goalsStatus.textContent = isAuthenticated()
+          goalsStatus.textContent = isUserSessionActive()
             ? 'Metas guardadas. Se sincronizarán automáticamente cuando vuelva la conexión.'
             : 'Metas guardadas en este dispositivo.';
         }

@@ -3,7 +3,7 @@ export function renderizarDialogoCuenta(): string {
     <dialog id="auth-dialog" class="auth-dialog">
       <form id="auth-form" class="delivery-form">
         <h2>Inicia sesión o crea tu cuenta</h2>
-        <p>Usa tu cuenta para mantener tus materias, entregas y avances sincronizados entre dispositivos. Puedes seguir usando la app sin iniciar sesión.</p>
+        <p>Inicia sesión o crea una cuenta para acceder a la aplicación. Si no tienes conexión, puedes iniciar sesión o crear una cuenta pendiente en este dispositivo.</p>
         <div class="form-group">
           <label for="auth-first-name">Nombre <span id="auth-first-name-required" class="required-mark" aria-hidden="true" hidden>*</span></label>
           <input id="auth-first-name" class="form-control" maxlength="100" autocomplete="given-name" placeholder="Ej. Camila" />

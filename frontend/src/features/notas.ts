@@ -4,7 +4,7 @@ import {
   listarAsignaturas,
   listarApuntes
 } from '../utils/db';
-import { apiRequest, isAuthenticated } from '../services/api';
+import { apiRequest, isAuthenticated, isUserSessionActive } from '../services/api';
 
 export function inicializarNotas(databaseReady: Promise<IDBDatabase | undefined>): void {
   const form = document.getElementById('note-form') as HTMLFormElement | null;
@@ -81,7 +81,9 @@ export function inicializarNotas(databaseReady: Promise<IDBDatabase | undefined>
             const database = await databaseReady;
             if (!database || note.id === undefined) throw new Error('No se pudo acceder al apunte.');
             if (note.backendId && (!isAuthenticated() || !navigator.onLine)) {
-              throw new Error('Inicia sesión y recupera la conexión antes de eliminar este apunte.');
+              throw new Error(isUserSessionActive()
+                ? 'Recupera la conexión antes de eliminar este apunte sincronizado.'
+                : 'Inicia sesión y recupera la conexión antes de eliminar este apunte.');
             }
             if (isAuthenticated() && navigator.onLine && note.backendId) {
               await apiRequest<void>(`/subjects/notes/${note.backendId}`, { method: 'DELETE' });
@@ -141,7 +143,7 @@ export function inicializarNotas(databaseReady: Promise<IDBDatabase | undefined>
             noteStatus.textContent = `Apunte guardado. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
           }
         } else {
-          noteStatus.textContent = isAuthenticated()
+          noteStatus.textContent = isUserSessionActive()
             ? 'Apunte guardado. Se sincronizará automáticamente cuando vuelva la conexión.'
             : 'Apunte guardado en este dispositivo.';
         }

@@ -1,15 +1,28 @@
+import { apiRequest, getCurrentUsername, isAuthenticated } from '../services/api';
+import { abrirCamara, capturarFoto, describirErrorCamara, detenerCamara } from '../devices/dispositivo';
 import {
+  describirErrorConexionBaseDatos,
   guardarPerfil,
   obtenerPerfil,
-  obtenerUltimaFotoPerfil,
   type PerfilEstudiante
 } from '../utils/db';
-import { abrirCamara, capturarFoto, describirErrorCamara, detenerCamara } from '../devices/dispositivo';
+
+const MAX_PHOTO_BYTES = 1024 * 1024;
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return blob.arrayBuffer().then(buffer => {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+    }
+    return btoa(binary);
+  });
+}
 
 export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined>): void {
-  const form = document.getElementById('profile-form') as HTMLFormElement | null;
-  const nameInput = document.getElementById('profile-name') as HTMLInputElement | null;
-  const usernameInput = document.getElementById('profile-username') as HTMLInputElement | null;
+  const nameDisplay = document.getElementById('profile-name-display');
+  const usernameDisplay = document.getElementById('profile-username-display');
   const photoPreview = document.getElementById('profile-photo-preview') as HTMLImageElement | null;
   const menuName = document.getElementById('profile-menu-name');
   const menuInitial = document.getElementById('profile-menu-initial');
@@ -22,28 +35,17 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
   const choosePhoto = document.getElementById('btn-choose-photo');
   const capturePhoto = document.getElementById('btn-capture-photo');
   const cancelCamera = document.getElementById('btn-cancel-camera');
-  if (!form || !nameInput || !usernameInput || !photoPreview || !photoFile || !status ||
+  if (!nameDisplay || !usernameDisplay || !photoPreview || !photoFile || !status ||
       !cameraDialog || !cameraVideo || !openCamera || !choosePhoto || !capturePhoto || !cancelCamera) return;
-  const profileForm = form;
-  const profileNameInput = nameInput;
-  const profileUsernameInput = usernameInput;
+  const profileNameDisplay = nameDisplay;
+  const profileUsernameDisplay = usernameDisplay;
   const profilePhotoPreview = photoPreview;
-  const profilePhotoFile = photoFile;
   const profileStatus = status;
-  const profileCameraDialog = cameraDialog;
   const profileCameraVideo = cameraVideo;
-  const openCameraButton = openCamera;
-  const choosePhotoButton = choosePhoto;
-  const capturePhotoButton = capturePhoto;
-  const cancelCameraButton = cancelCamera;
 
   let currentProfile: PerfilEstudiante | undefined;
-  let pendingPhoto: Blob | undefined;
   let cameraStream: MediaStream | undefined;
   let photoUrl: string | undefined;
-  const profileChannel = typeof BroadcastChannel === 'undefined'
-    ? undefined
-    : new BroadcastChannel('centro-mando-profile');
 
   function updateProfileMenu(name: string): void {
     const displayName = name.trim() || 'Mi perfil';
@@ -74,6 +76,92 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
     }
   }
 
+  async function savePhoto(photo: Blob): Promise<void> {
+    if (photo.size > MAX_PHOTO_BYTES) {
+      throw new Error('La foto supera el máximo de 1 MB. Elige una imagen más pequeña.');
+    }
+    const db = await databaseReady;
+    if (!db) throw new Error('IndexedDB no está disponible.');
+    const username = getCurrentUsername();
+    if (!username) throw new Error('Inicia sesión para guardar tu foto de perfil.');
+    if (!currentProfile) throw new Error('No se pudo cargar el perfil de la cuenta.');
+
+    currentProfile = await guardarPerfil(db, {
+      nombre: currentProfile.nombre,
+      nombreUsuario: username,
+      foto: photo,
+      syncPending: true
+    });
+    showPhoto(photo);
+
+    if (navigator.onLine && isAuthenticated()) {
+      await apiRequest('/users/me/photo', {
+        method: 'PUT',
+        body: JSON.stringify({ photo: await blobToBase64(photo) })
+      });
+      currentProfile = await guardarPerfil(db, {
+        nombre: currentProfile.nombre,
+        nombreUsuario: username,
+        foto: photo,
+        syncPending: false
+      });
+      profileStatus.textContent = 'Foto de perfil sincronizada con tu cuenta.';
+    } else {
+      profileStatus.textContent = 'Foto guardada localmente. Se sincronizará al recuperar la conexión.';
+    }
+  }
+
+  async function loadProfile(): Promise<void> {
+    const db = await databaseReady;
+    if (!db) {
+      profileStatus.textContent = 'El perfil no está disponible porque IndexedDB no pudo abrirse.';
+      return;
+    }
+    const username = getCurrentUsername();
+    if (!username) {
+      currentProfile = undefined;
+      profileNameDisplay.textContent = 'Inicia sesión para ver tu perfil.';
+      profileUsernameDisplay.textContent = '';
+      updateProfileMenu('');
+      showPhoto(undefined);
+      return;
+    }
+    currentProfile = await obtenerPerfil(db);
+    if (!currentProfile || currentProfile.nombreUsuario !== username) {
+      profileNameDisplay.textContent = username;
+      profileUsernameDisplay.textContent = username;
+      currentProfile = {
+        id: 'estudiante',
+        nombre: username,
+        nombreUsuario: username,
+        actualizadoEn: new Date().toISOString()
+      };
+    } else {
+      profileNameDisplay.textContent = currentProfile.nombre;
+      profileUsernameDisplay.textContent = currentProfile.nombreUsuario;
+    }
+    updateProfileMenu(profileNameDisplay.textContent ?? username);
+    showPhoto(currentProfile.foto);
+  }
+
+  async function synchronizePendingPhoto(): Promise<void> {
+    const db = await databaseReady;
+    if (!db || !navigator.onLine || !isAuthenticated()) return;
+    const profile = await obtenerPerfil(db);
+    if (!profile?.syncPending || !profile.foto) return;
+    await apiRequest('/users/me/photo', {
+      method: 'PUT',
+      body: JSON.stringify({ photo: await blobToBase64(profile.foto) })
+    });
+    currentProfile = await guardarPerfil(db, {
+      nombre: profile.nombre,
+      nombreUsuario: profile.nombreUsuario,
+      foto: profile.foto,
+      syncPending: false
+    });
+    profileStatus.textContent = 'Foto de perfil sincronizada con tu cuenta.';
+  }
+
   menuPhoto?.addEventListener('error', () => {
     menuPhoto.hidden = true;
     if (menuInitial) menuInitial.hidden = false;
@@ -85,61 +173,27 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
     profileCameraVideo.srcObject = null;
   }
 
-  async function saveProfile(photo = pendingPhoto): Promise<void> {
-    const db = await databaseReady;
-    if (!db) throw new Error('IndexedDB no está disponible.');
-    const nombre = profileNameInput.value.trim();
-    const nombreUsuario = profileUsernameInput.value.trim().replace(/^@/, '');
-    if (!nombre || !nombreUsuario) throw new Error('Completa el nombre y el nombre de usuario.');
-    const foto = photo ?? currentProfile?.foto;
-    currentProfile = await guardarPerfil(db, {
-      nombre,
-      nombreUsuario,
-      ...(foto ? { foto } : {})
-    });
-    pendingPhoto = undefined;
-    showPhoto(currentProfile.foto);
-    updateProfileMenu(currentProfile.nombre);
-    profileChannel?.postMessage('profile-updated');
-  }
-
-  profileForm.addEventListener('submit', event => {
-    event.preventDefault();
-    void saveProfile().then(() => {
-      profileStatus.textContent = 'Perfil guardado.';
-    }).catch(error => {
-      profileStatus.textContent = error instanceof Error ? error.message : 'No se pudo guardar el perfil.';
-    });
-  });
-
-  choosePhotoButton.addEventListener('click', () => profilePhotoFile.click());
-  profilePhotoFile.addEventListener('change', () => {
-    const file = profilePhotoFile.files?.[0];
-    profilePhotoFile.value = '';
+  choosePhoto.addEventListener('click', () => photoFile.click());
+  photoFile.addEventListener('change', () => {
+    const file = photoFile.files?.[0];
+    photoFile.value = '';
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       profileStatus.textContent = 'Selecciona un archivo de imagen válido.';
       return;
     }
-    pendingPhoto = file;
-    showPhoto(file);
-    if (profileNameInput.value.trim() && profileUsernameInput.value.trim()) {
-      void saveProfile(file).then(() => {
-        profileStatus.textContent = 'Foto de perfil guardada.';
-      }).catch(error => {
-        profileStatus.textContent = error instanceof Error ? error.message : 'No se pudo guardar la fotografía.';
-      });
-    } else {
-      profileStatus.textContent = 'Foto lista. Completa tu nombre y usuario y guarda el perfil.';
-    }
+    void savePhoto(file).catch(error => {
+      profileStatus.textContent = describirErrorConexionBaseDatos(error) ??
+        (error instanceof Error ? error.message : 'No se pudo guardar la fotografía.');
+    });
   });
 
-  openCameraButton.addEventListener('click', () => {
+  openCamera.addEventListener('click', () => {
     void (async () => {
       try {
         cameraStream = await abrirCamara('user');
         profileCameraVideo.srcObject = cameraStream;
-        profileCameraDialog.showModal();
+        cameraDialog.showModal();
         await profileCameraVideo.play();
         profileStatus.textContent = 'Cámara activa. Captura la foto cuando estés listo.';
       } catch (error) {
@@ -149,70 +203,47 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
     })();
   });
 
-  capturePhotoButton.addEventListener('click', () => {
+  capturePhoto.addEventListener('click', () => {
     void (async () => {
       try {
-        pendingPhoto = await capturarFoto(profileCameraVideo);
+        const photo = await capturarFoto(profileCameraVideo);
         stopCamera();
-        profileCameraDialog.close();
-        showPhoto(pendingPhoto);
-        if (profileNameInput.value.trim() && profileUsernameInput.value.trim()) {
-          await saveProfile(pendingPhoto);
-          profileStatus.textContent = 'Foto de perfil capturada y guardada.';
-        } else {
-          profileStatus.textContent = 'Foto capturada. Completa tu nombre y usuario y guarda el perfil.';
-        }
+        cameraDialog.close();
+        await savePhoto(photo);
       } catch (error) {
-        profileStatus.textContent = error instanceof Error ? error.message : 'No se pudo capturar la foto.';
+        profileStatus.textContent = describirErrorConexionBaseDatos(error) ??
+          (error instanceof Error ? error.message : 'No se pudo capturar la foto.');
       }
     })();
   });
 
-  cancelCameraButton.addEventListener('click', () => profileCameraDialog.close());
-  profileCameraDialog.addEventListener('close', stopCamera);
+  cancelCamera.addEventListener('click', () => cameraDialog.close());
+  cameraDialog.addEventListener('close', stopCamera);
+  window.addEventListener('auth-changed', () => {
+    void loadProfile().catch(error => {
+      console.error('No se pudo cargar el perfil de la cuenta:', error);
+      profileStatus.textContent = 'No se pudo cargar el perfil de la cuenta.';
+    });
+  });
+  window.addEventListener('profile-updated', () => {
+    void loadProfile().catch(error => {
+      console.error('No se pudo actualizar el perfil:', error);
+      profileStatus.textContent = 'No se pudo actualizar el perfil.';
+    });
+    void synchronizePendingPhoto().catch(error => {
+      console.error('No se pudo sincronizar la foto de perfil:', error);
+      profileStatus.textContent = 'No se pudo sincronizar la foto de perfil.';
+    });
+  });
+  window.addEventListener('online', () => {
+    void synchronizePendingPhoto().catch(error => {
+      console.error('No se pudo sincronizar la foto de perfil:', error);
+      profileStatus.textContent = 'No se pudo sincronizar la foto de perfil.';
+    });
+  });
   window.addEventListener('pagehide', () => {
     stopCamera();
     if (photoUrl) URL.revokeObjectURL(photoUrl);
-    profileChannel?.close();
-  });
-
-  async function loadProfile(): Promise<void> {
-    const db = await databaseReady;
-    if (!db) {
-      profileStatus.textContent = 'El perfil no está disponible porque IndexedDB no pudo abrirse.';
-      return;
-    }
-    currentProfile = await obtenerPerfil(db);
-    if (currentProfile) {
-      profileNameInput.value = currentProfile.nombre;
-      profileUsernameInput.value = currentProfile.nombreUsuario;
-      showPhoto(currentProfile.foto);
-      updateProfileMenu(currentProfile.nombre);
-      profileStatus.textContent = 'Perfil cargado desde este dispositivo.';
-    } else {
-      profileNameInput.value = '';
-      profileUsernameInput.value = '';
-      updateProfileMenu('');
-      const legacyPhoto = await obtenerUltimaFotoPerfil(db);
-      showPhoto(legacyPhoto);
-      if (legacyPhoto) {
-        currentProfile = {
-          id: 'estudiante',
-          nombre: '',
-          nombreUsuario: '',
-          foto: legacyPhoto,
-          actualizadoEn: new Date().toISOString()
-        };
-        profileStatus.textContent = 'Se recuperó la foto guardada anteriormente. Completa tu perfil para conservarla.';
-      }
-    }
-  }
-
-  profileChannel?.addEventListener('message', event => {
-    if (event.data !== 'profile-updated') return;
-    void loadProfile().catch(error => {
-      console.error('No se pudo actualizar el perfil desde otra ventana:', error);
-    });
   });
 
   void loadProfile().catch(error => {

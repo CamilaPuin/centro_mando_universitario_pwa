@@ -2,27 +2,18 @@ export const interfazDispositivo = `
   <div class="device-tools">
     <section class="dashboard-panel profile-panel" aria-labelledby="profile-title">
       <h2 id="profile-title" class="panel-title">Tu perfil</h2>
-      <p class="device-help">Tu perfil se guarda en este dispositivo.</p>
+      <p class="device-help">Este perfil pertenece a tu cuenta y se sincroniza cuando hay conexión.</p>
       <div class="profile-editor">
         <img id="profile-photo-preview" class="profile-photo-preview" alt="Foto de perfil" hidden />
-        <form id="profile-form" class="delivery-form">
-          <div class="form-group">
-            <label for="profile-name">Nombre <span class="required-mark" aria-hidden="true">*</span></label>
-            <input id="profile-name" class="form-control" required maxlength="100" autocomplete="name" placeholder="Ej. Camila Puin" />
-          </div>
-          <div class="form-group">
-            <label for="profile-username">Nombre de usuario <span class="required-mark" aria-hidden="true">*</span></label>
-            <input id="profile-username" class="form-control" required maxlength="40" autocomplete="username" placeholder="Ej. camila.puin" />
-          </div>
-          <div class="profile-actions">
-            <button class="btn btn-save" type="submit">Guardar perfil</button>
-            <button id="btn-open-camera" class="btn btn-load" type="button">Tomar foto</button>
-            <button id="btn-choose-photo" class="btn btn-load" type="button">Elegir imagen</button>
-            <input id="profile-photo-file" type="file" accept="image/*" capture="user" hidden />
-          </div>
-        </form>
+        <p><strong>Nombre:</strong> <span id="profile-name-display">Inicia sesión para ver tu perfil.</span></p>
+        <p><strong>Usuario:</strong> <span id="profile-username-display"></span></p>
+        <div class="profile-actions">
+          <button id="btn-open-camera" class="btn btn-load" type="button">Tomar foto</button>
+          <button id="btn-choose-photo" class="btn btn-load" type="button">Elegir imagen</button>
+          <input id="profile-photo-file" type="file" accept="image/*" capture="user" hidden />
+        </div>
       </div>
-      <p id="profile-status" class="device-status" role="status" aria-live="polite">Completa tu perfil. La cámara solo se activa cuando la solicitas.</p>
+      <p id="profile-status" class="device-status" role="status" aria-live="polite">La cámara solo se activa cuando la solicitas.</p>
     </section>
 
     <section class="dashboard-panel" aria-labelledby="reminders-title">

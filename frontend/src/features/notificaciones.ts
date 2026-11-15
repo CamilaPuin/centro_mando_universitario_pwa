@@ -1,4 +1,4 @@
-import { apiRequest, isAuthenticated } from '../services/api';
+import { apiRequest, isAuthenticated, isUserSessionActive } from '../services/api';
 import {
   listarAsignaturas,
   listarClasesHorario,
@@ -192,7 +192,9 @@ async function habilitarNotificaciones(status: HTMLElement): Promise<void> {
 
     status.textContent = isAuthenticated()
       ? 'Recordatorios activados.'
-      : 'Recordatorios activados en este dispositivo. Inicia sesión para recibir notificaciones de tu cuenta.';
+      : isUserSessionActive()
+        ? 'Recordatorios activados en este dispositivo. Las notificaciones de cuenta se sincronizarán al recuperar la conexión.'
+        : 'Recordatorios activados en este dispositivo. Las notificaciones de cuenta requieren iniciar sesión.';
   } catch (error) {
     console.error('No se pudieron activar las notificaciones:', error);
     status.textContent = error instanceof Error

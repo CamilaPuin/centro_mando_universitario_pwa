@@ -12,12 +12,13 @@ import {
   obtenerMetas,
   guardarMetas,
   quitarCambioPendiente,
+  describirErrorConexionBaseDatos,
   type Asignatura,
   type ApunteMateria,
   type EntregaAcademica,
   type SesionEstudio
 } from '../utils/db';
-import { apiRequest, isAuthenticated } from '../services/api';
+import { apiRequest, isAuthenticated, isUserSessionActive } from '../services/api';
 import { renderizarSemanaExamenes } from './calendario';
 
 function normalizarCalificacion(entrega: EntregaAcademica): number | null {
@@ -599,7 +600,9 @@ export function inicializarSincronizacion(
 
   async function enviarCambiosPendientes(db: IDBDatabase): Promise<void> {
     if (!isAuthenticated()) {
-      syncStatus.textContent = 'Inicia sesión para sincronizar tus cambios entre dispositivos.';
+      syncStatus.textContent = isUserSessionActive()
+        ? 'Tus cambios están guardados localmente y se sincronizarán cuando se valide la cuenta.'
+        : 'Inicia sesión para sincronizar tus cambios entre dispositivos.';
       return;
     }
     const asignaturas = await listarAsignaturas(db);
@@ -715,9 +718,10 @@ export function inicializarSincronizacion(
       await cargarDatosRemotos(db);
     } catch (error) {
       console.error('Error al sincronizar los cambios pendientes:', error);
-      syncStatus.textContent = error instanceof Error
-        ? `No se pudo completar la sincronización. Se volverá a intentar automáticamente: ${error.message}`
-        : 'No se pudo completar la sincronización. Se volverá a intentar automáticamente.';
+      syncStatus.textContent = describirErrorConexionBaseDatos(error) ??
+        (error instanceof Error
+          ? `No se pudo completar la sincronización. Se volverá a intentar automáticamente: ${error.message}`
+          : 'No se pudo completar la sincronización. Se volverá a intentar automáticamente.');
     }
   }
 
@@ -791,16 +795,17 @@ export function inicializarSincronizacion(
       if (isAuthenticated() && navigator.onLine) {
         syncStatus.textContent = 'Entrega guardada. Sincronizando tus cambios…';
         void vaciarBandejaEnLinea();
-      } else if (isAuthenticated()) {
-        syncStatus.textContent = 'Entrega guardada. Se sincronizará automáticamente cuando vuelva la conexión.';
+      } else if (isUserSessionActive()) {
+        syncStatus.textContent = navigator.onLine
+          ? 'Entrega guardada localmente. Se sincronizará al validar tu cuenta.'
+          : 'Entrega guardada. Se sincronizará automáticamente cuando vuelva la conexión.';
       } else {
         syncStatus.textContent = 'Entrega guardada. Inicia sesión para sincronizar tus cambios entre dispositivos.';
       }
     } catch (error) {
       console.error('No se pudo guardar la entrega:', error);
-      syncStatus.textContent = error instanceof Error
-        ? `No se pudo guardar la entrega: ${error.message}`
-        : 'No se pudo guardar la entrega.';
+      syncStatus.textContent = describirErrorConexionBaseDatos(error) ??
+        (error instanceof Error ? `No se pudo guardar la entrega: ${error.message}` : 'No se pudo guardar la entrega.');
     }
   });
 
@@ -831,7 +836,7 @@ export function inicializarSincronizacion(
       window.dispatchEvent(new Event('entregas-actualizadas'));
       const pendientes = await listarCambiosPendientes(db);
       if (pendientes.length) {
-        syncStatus.textContent = isAuthenticated()
+        syncStatus.textContent = isUserSessionActive()
           ? 'Tus cambios pendientes se sincronizarán automáticamente.'
           : 'Inicia sesión para sincronizar tus cambios entre dispositivos.';
       }

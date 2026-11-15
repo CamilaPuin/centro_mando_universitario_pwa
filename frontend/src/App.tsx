@@ -33,7 +33,7 @@ export function App() {
     inicializarTema();
     inicializarPwa();
     const limpiarNavegacion = inicializarNavegacion();
-    inicializarAutenticacion();
+    inicializarAutenticacion(databaseReady);
 
     const actualizarNavegacionSecundaria = (tabId: string): void => {
       document.querySelectorAll<HTMLButtonElement>('#mobile-nav-menu [data-tab]').forEach(menuItem => {

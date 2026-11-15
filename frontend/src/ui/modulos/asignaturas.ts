@@ -53,7 +53,7 @@ export function renderizarModuloAsignaturas(): string {
             </div>
             <div class="form-group">
               <label for="class-location">Aula o ubicación</label>
-              <input id="class-location" class="form-control" maxlength="120" placeholder="Ej. Bloque 3, aula 204" />
+              <input id="class-location" class="form-control" maxlength="120" placeholder="Ej. RA303" />
             </div>
             <div class="profile-actions">
               <button id="class-submit" class="btn btn-save" type="submit">Agregar al horario</button>

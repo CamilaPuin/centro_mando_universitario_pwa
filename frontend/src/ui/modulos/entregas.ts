@@ -8,7 +8,7 @@ export function renderizarModuloEntregas(): string {
       </div>
       <div class="dashboard-panel delivery-editor-panel">
         <h2 class="panel-title">Entrega o evaluación</h2>
-        <p class="device-help">Los cambios se guardan automáticamente. Inicia sesión para verlos también en tus otros dispositivos.</p>
+        <p class="device-help">Los cambios se guardan automáticamente y se sincronizan con tu cuenta para verlos en otros dispositivos.</p>
         <form id="delivery-form" class="delivery-form">
           <input id="delivery-id" type="hidden" />
           <div class="form-group">
