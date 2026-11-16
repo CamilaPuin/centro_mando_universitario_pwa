@@ -43,7 +43,6 @@ export function inicializarAutenticacion(
   databaseReady: Promise<IDBDatabase | undefined>
 ): void {
   const button = document.getElementById('auth-button') as HTMLButtonElement | null;
-  const dialog = document.getElementById('auth-dialog') as HTMLDialogElement | null;
   const form = document.getElementById('auth-form') as HTMLFormElement | null;
   const modeButton = document.getElementById('auth-mode-toggle') as HTMLButtonElement | null;
   const firstName = document.getElementById('auth-first-name') as HTMLInputElement | null;
@@ -54,7 +53,7 @@ export function inicializarAutenticacion(
   const password = document.getElementById('auth-password') as HTMLInputElement | null;
   const status = document.getElementById('auth-status');
   const sessionStatus = document.getElementById('auth-session-status');
-  if (!button || !dialog || !form || !modeButton || !firstName || !lastName ||
+  if (!button || !form || !modeButton || !firstName || !lastName ||
       !firstNameRequired || !lastNameRequired || !sessionStatus ||
       !username || !password || !status) return;
   const authStatus = status;
@@ -71,7 +70,7 @@ export function inicializarAutenticacion(
       ? !navigator.onLine
         ? `Sesión local de ${activeUsername}. Los cambios se sincronizarán al recuperar la conexión.`
         : isOfflineSession()
-          ? `Validando la sesión de ${activeUsername} con el backend…`
+          ? `Validando la sesión de ${activeUsername} en línea…`
           : `Sesión iniciada para ${activeUsername}.`
       : 'Inicia sesión para acceder a tu cuenta.';
     authSessionStatus.classList.toggle('offline-session', !navigator.onLine);
@@ -90,11 +89,10 @@ export function inicializarAutenticacion(
     modeButton.textContent = registerMode ? 'Ya tengo una cuenta' : 'Crear cuenta nueva';
   };
 
-  const openAuthDialog = (): void => {
+  const updateLoginNotice = (): void => {
     authStatus.textContent = navigator.onLine
       ? ''
       : 'Sin conexión: inicia sesión con una cuenta que ya hayas usado en este dispositivo, o crea una cuenta pendiente.';
-    if (!dialog.open) dialog.showModal();
   };
 
   async function guardarCredencial(
@@ -191,13 +189,14 @@ export function inicializarAutenticacion(
     window.dispatchEvent(new Event('close-header-menus'));
     if (isUserSessionActive()) {
       clearAuthSession();
-      authStatus.textContent = 'Sesión cerrada.';
+      authStatus.textContent = 'Sesión cerrada. Inicia sesión para continuar.';
       registerMode = false;
       updateMode();
-      openAuthDialog();
+      password.value = '';
+      updateButton();
       return;
     }
-    openAuthDialog();
+    updateLoginNotice();
   });
 
   modeButton.addEventListener('click', () => {
@@ -274,7 +273,6 @@ export function inicializarAutenticacion(
           }
         }
 
-        dialog.close();
         registerMode = false;
         updateMode();
         password.value = '';
@@ -289,18 +287,6 @@ export function inicializarAutenticacion(
     })();
   });
 
-  dialog.querySelectorAll<HTMLButtonElement>('[data-close-auth]').forEach(close => {
-    close.addEventListener('click', () => {
-      if (isUserSessionActive()) dialog.close();
-      else authStatus.textContent = 'Inicia sesión o crea una cuenta para continuar.';
-    });
-  });
-  dialog.addEventListener('cancel', event => {
-    if (!isUserSessionActive()) {
-      event.preventDefault();
-      authStatus.textContent = 'Inicia sesión o crea una cuenta para continuar.';
-    }
-  });
   window.addEventListener('auth-changed', updateButton);
   window.addEventListener('online', () => {
     updateButton();
@@ -311,5 +297,5 @@ export function inicializarAutenticacion(
 
   updateMode();
   updateButton();
-  openAuthDialog();
+  updateLoginNotice();
 }
