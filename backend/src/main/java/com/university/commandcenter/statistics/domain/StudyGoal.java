@@ -9,5 +9,4 @@ public class StudyGoal {
     private final Long id;
     private final Long userId;
     private final int targetWeeklyMinutes;
-    private final double targetAverageGrade;
 }

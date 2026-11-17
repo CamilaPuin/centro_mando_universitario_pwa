@@ -2,19 +2,24 @@ package com.university.commandcenter.subject.domain;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDateTime;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class SubjectTest {
 
     @Test
-    void calculatesWeightedAverageFromGradedEvaluations() {
+    void storesEvaluationsForSchedulingWithoutGrades() {
+        LocalDateTime evaluationDate = LocalDateTime.of(2026, 11, 17, 8, 0);
         Subject subject = Subject.builder().name("Math").credits(3).build();
-        subject.addEvaluation(Evaluation.builder().name("Exam").grade(4.0).percentage(40).build());
-        subject.addEvaluation(Evaluation.builder().name("Project").grade(3.0).percentage(60).build());
-        subject.addEvaluation(Evaluation.builder().name("Upcoming").grade(null).percentage(20).build());
+        subject.addEvaluation(Evaluation.builder()
+                .name("Exam")
+                .evaluationDate(evaluationDate)
+                .build());
 
-        assertEquals(3.4, subject.calculateCurrentAverage(), 0.0001);
+        assertEquals("Exam", subject.getEvaluations().get(0).getName());
+        assertEquals(evaluationDate, subject.getEvaluations().get(0).getEvaluationDate());
     }
 
     @Test

@@ -92,9 +92,12 @@ function describirFecha(fecha: Date | undefined, ahora: Date): string {
     minute: '2-digit'
   }).format(fecha);
   const horas = (fecha.getTime() - ahora.getTime()) / 3_600_000;
+  const diaFecha = Date.UTC(fecha.getFullYear(), fecha.getMonth(), fecha.getDate());
+  const diaAhora = Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  const diferenciaDias = (diaFecha - diaAhora) / 86_400_000;
   if (horas < 0) return `Vencida: ${fechaLegible}`;
-  if (horas < 24) return `Vence hoy, ${fechaLegible}`;
-  if (horas < 48) return `Vence mañana, ${fechaLegible}`;
+  if (diferenciaDias === 0) return `Vence hoy, ${fechaLegible}`;
+  if (diferenciaDias === 1) return `Vence mañana, ${fechaLegible}`;
   return `Vence ${fechaLegible}`;
 }
 

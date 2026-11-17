@@ -57,8 +57,6 @@ public class GamificationController {
         int streak = managePomodoroUseCase.calculateCurrentStreak(userId, 60);
         int longestStreak = calculateLongestStreak(sessions, 60);
 
-        double gpa = calculateOverallGpa(subjects);
-        
         int xp = (totalMinutes * 10) + (tasksDoneCount * 50);
         int level = 1 + (xp / 500);
         int xpForNextLevel = level * 500;
@@ -111,15 +109,6 @@ public class GamificationController {
         ));
 
         badges.add(new Badge(
-                "GPA_MASTER",
-                "Excelencia Académica",
-                "Mantén un promedio general ponderado de 4.0 o superior",
-                gpa >= 4.0 ? "UNLOCKED" : "LOCKED",
-                (int) Math.round(gpa * 10),
-                40
-        ));
-
-        badges.add(new Badge(
                 "ORGANIZED_STUDENT",
                 "Semestre en Orden",
                 "Registra 3 o más asignaturas en tu centro de mando",
@@ -141,22 +130,6 @@ public class GamificationController {
         );
 
         return ResponseEntity.ok(profile);
-    }
-
-    private double calculateOverallGpa(List<Subject> subjects) {
-        if (subjects.isEmpty()) return 0.0;
-        double totalWeightedGrade = 0.0;
-        int totalCredits = 0;
-
-        for (Subject s : subjects) {
-            double avg = s.calculateCurrentAverage();
-            if (avg > 0) {
-                totalWeightedGrade += (avg * s.getCredits());
-                totalCredits += s.getCredits();
-            }
-        }
-
-        return totalCredits > 0 ? (totalWeightedGrade / totalCredits) : 0.0;
     }
 
     private int calculateLongestStreak(List<StudySessionEntity> sessions, int dailyGoalMinutes) {

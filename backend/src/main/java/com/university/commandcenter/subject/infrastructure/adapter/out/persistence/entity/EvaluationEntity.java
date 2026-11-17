@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -26,12 +25,6 @@ public class EvaluationEntity {
 
     @Column(nullable = false, length = 100)
     private String name;
-
-    @Column(columnDefinition = "DECIMAL(4,2)")
-    private BigDecimal grade;
-
-    @Column(nullable = false, columnDefinition = "DECIMAL(5,2)")
-    private BigDecimal percentage;
 
     @Column(name = "evaluation_date")
     private LocalDateTime evaluationDate;

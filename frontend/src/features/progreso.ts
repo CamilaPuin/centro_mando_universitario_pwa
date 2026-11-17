@@ -1,6 +1,5 @@
 import {
   guardarMetas,
-  listarEntregas,
   listarSesionesEstudio,
   obtenerMetas
 } from '../utils/db';
@@ -15,7 +14,6 @@ interface WeeklySummaryReport {
   weekRange: string;
   totalMinutesStudied: number;
   tasksCompletedThisWeek: number;
-  overallGpa: number;
   mostStudiedSubject: string;
   selfEvaluationFeedback: string;
   recommendation: string;
@@ -31,7 +29,6 @@ interface GamificationProfile {
 
 export interface DatosProgreso {
   minutosMeta: number;
-  promedioMeta: number;
   minutosEstudiados: number;
   porcentajeMeta: number;
   resumenSemanal: ElementoResumen[];
@@ -57,13 +54,11 @@ export async function obtenerDatosProgreso(
   const db = await databaseReady;
   if (!db) throw new Error('Metas y progreso no disponibles: no se pudo abrir el almacenamiento local.');
 
-  const [goals, sessions, deliveries] = await Promise.all([
+  const [goals, sessions] = await Promise.all([
     obtenerMetas(db),
-    listarSesionesEstudio(db),
-    listarEntregas(db)
+    listarSesionesEstudio(db)
   ]);
   const goalMinutes = goals?.minutosSemanales ?? 300;
-  const goalAverage = goals?.promedioDeseado ?? 4;
   const weekStart = mondayOf(new Date());
   const studySecondsThisWeek = sessions.reduce((total, session) => {
     const startedAt = new Date(session.inicio);
@@ -79,23 +74,9 @@ export async function obtenerDatosProgreso(
   const studyLevel = Math.floor(totalStudyMinutes / 300) + 1;
   const nextLevelMinutes = studyLevel * 300;
 
-  const graded = deliveries.filter(item =>
-    item.calificacion !== undefined &&
-    Number.isFinite(item.calificacion) &&
-    (item.notaMaxima ?? 5) > 0
-  );
-  const average = graded.length
-    ? graded.reduce((sum, item) =>
-        sum + ((item.calificacion ?? 0) / (item.notaMaxima ?? 5)) * 5, 0
-      ) / graded.length
-    : undefined;
-
   let resumenSemanal = [
     elemento('Sesiones registradas', String(sessions.filter(session => new Date(session.inicio) >= weekStart).length)),
-    elemento('Tiempo de estudio', `${Math.floor(studiedMinutes / 60)} h ${studiedMinutes % 60} min`),
-    elemento('Evaluaciones calificadas', String(graded.length)),
-    elemento('Promedio actual', average === undefined ? 'Sin calificaciones' : `${average.toFixed(2)} / 5`),
-    elemento('Meta de promedio', `${goalAverage.toFixed(1)} / 5`)
+    elemento('Tiempo de estudio', `${Math.floor(studiedMinutes / 60)} h ${studiedMinutes % 60} min`)
   ];
   let errorSemanal: string | undefined;
 
@@ -106,7 +87,6 @@ export async function obtenerDatosProgreso(
         elemento('Semana', report.weekRange),
         elemento('Tiempo de estudio', `${Math.floor(report.totalMinutesStudied / 60)} h ${report.totalMinutesStudied % 60} min`),
         elemento('Entregas completadas', String(report.tasksCompletedThisWeek)),
-        elemento('Promedio general', `${report.overallGpa.toFixed(2)} / 5`),
         elemento('Materia más estudiada', report.mostStudiedSubject || 'Sin datos'),
         elemento('Autoevaluación', report.selfEvaluationFeedback),
         elemento('Sugerencia', report.recommendation)
@@ -130,8 +110,7 @@ export async function obtenerDatosProgreso(
   const earned = [
     ...(streak >= 3 ? ['Racha de 3 días'] : []),
     ...(streak >= 7 ? ['Racha de 7 días'] : []),
-    ...(studiedMinutes >= 300 ? ['5 horas de estudio esta semana'] : []),
-    ...(average !== undefined && average >= goalAverage ? ['Meta de promedio alcanzada'] : [])
+    ...(studiedMinutes >= 300 ? ['5 horas de estudio esta semana'] : [])
   ];
   let resumenLogros = [
     elemento('Racha actual', `${streak} día${streak === 1 ? '' : 's'}`),
@@ -165,7 +144,6 @@ export async function obtenerDatosProgreso(
 
   return {
     minutosMeta: goalMinutes,
-    promedioMeta: goalAverage,
     minutosEstudiados: studiedMinutes,
     porcentajeMeta: Math.min(100, Math.round(studiedMinutes / goalMinutes * 100)),
     resumenSemanal,
@@ -177,30 +155,24 @@ export async function obtenerDatosProgreso(
 
 export async function guardarMetasProgreso(
   databaseReady: Promise<IDBDatabase | undefined>,
-  minutosSemanales: number,
-  promedioDeseado: number
+  minutosSemanales: number
 ): Promise<string> {
   if (!Number.isFinite(minutosSemanales) || minutosSemanales < 1 || minutosSemanales > 10080) {
     throw new Error('La meta semanal debe estar entre 1 y 10 080 minutos.');
   }
-  if (!Number.isFinite(promedioDeseado) || promedioDeseado < 0 || promedioDeseado > 5) {
-    throw new Error('El promedio deseado debe estar entre 0 y 5.');
-  }
-
   const db = await databaseReady;
   if (!db) throw new Error('IndexedDB no está disponible.');
-  await guardarMetas(db, { minutosSemanales, promedioDeseado, syncPending: true });
+  await guardarMetas(db, { minutosSemanales, syncPending: true });
 
   if (isAuthenticated() && navigator.onLine) {
     try {
       await apiRequest('/statistics/goals', {
         method: 'PUT',
         body: JSON.stringify({
-          targetWeeklyMinutes: minutosSemanales,
-          targetAverageGrade: promedioDeseado
+          targetWeeklyMinutes: minutosSemanales
         })
       });
-      await guardarMetas(db, { minutosSemanales, promedioDeseado, syncPending: false });
+      await guardarMetas(db, { minutosSemanales, syncPending: false });
       return 'Metas guardadas.';
     } catch (error) {
       return `Metas guardadas. Se volverán a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;

@@ -17,9 +17,6 @@ public interface StatisticsUseCase {
             int totalStudiedMinutesThisWeek,
             int targetWeeklyMinutes,
             double goalCompletionPercentage,
-            double currentGpa,
-            double targetAverageGrade,
-            double gradeGoalCompletionPercentage,
             int totalStudySessionsCompleted
     ) {}
 
@@ -44,7 +41,6 @@ public interface StatisticsUseCase {
             int targetMinutes,
             double goalCompletionRate,
             int tasksCompletedThisWeek,
-            double overallGpa,
             String mostStudiedSubject,
             String leastStudiedSubject,
             String selfEvaluationFeedback,

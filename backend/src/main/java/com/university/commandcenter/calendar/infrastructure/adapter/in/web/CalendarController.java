@@ -101,7 +101,7 @@ public class CalendarController {
                             subject.getName(),
                             evaluation.getEvaluationDate(),
                             evaluation.getEvaluationDate(),
-                            evaluation.getGrade() == null ? "Not graded" : "GRADE " + evaluation.getGrade()));
+                            "Evaluación"));
                 }
             }
         }

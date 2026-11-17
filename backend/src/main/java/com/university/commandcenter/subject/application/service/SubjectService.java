@@ -1,6 +1,5 @@
 package com.university.commandcenter.subject.application.service;
 
-import com.university.commandcenter.subject.application.port.in.CalculateAverageUseCase;
 import com.university.commandcenter.subject.application.port.in.ManageEvaluationUseCase;
 import com.university.commandcenter.subject.application.port.in.ManageSubjectNoteUseCase;
 import com.university.commandcenter.subject.application.port.in.ManageSubjectUseCase;
@@ -19,13 +18,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class SubjectService implements ManageSubjectUseCase, ManageEvaluationUseCase,
-        ManageSubjectNoteUseCase, CalculateAverageUseCase {
+        ManageSubjectNoteUseCase {
 
     private final SubjectRepositoryPort subjectRepository;
     private final SubjectJpaRepository subjectJpaRepository;
@@ -90,8 +88,6 @@ public class SubjectService implements ManageSubjectUseCase, ManageEvaluationUse
         EvaluationEntity entity = EvaluationEntity.builder()
                 .subject(subject)
                 .name(evaluation.getName().trim())
-                .grade(toDecimal(evaluation.getGrade()))
-                .percentage(BigDecimal.valueOf(evaluation.getPercentage()))
                 .evaluationDate(evaluation.getEvaluationDate())
                 .build();
         return subjectMapper.toDomain(evaluationJpaRepository.save(entity));
@@ -107,8 +103,6 @@ public class SubjectService implements ManageSubjectUseCase, ManageEvaluationUse
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation not found"));
         entity.setSubject(subject);
         entity.setName(evaluation.getName().trim());
-        entity.setGrade(toDecimal(evaluation.getGrade()));
-        entity.setPercentage(BigDecimal.valueOf(evaluation.getPercentage()));
         entity.setEvaluationDate(evaluation.getEvaluationDate());
         return subjectMapper.toDomain(evaluationJpaRepository.save(entity));
     }
@@ -130,12 +124,6 @@ public class SubjectService implements ManageSubjectUseCase, ManageEvaluationUse
                 .filter(existing -> subjectId.equals(existing.getSubject().getId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluation not found"));
         evaluationJpaRepository.delete(evaluation);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public double calculateAverage(Long userId, Long subjectId) {
-        return requireOwnedSubject(userId, subjectId).calculateCurrentAverage();
     }
 
     @Override
@@ -197,15 +185,5 @@ public class SubjectService implements ManageSubjectUseCase, ManageEvaluationUse
         if (evaluation.getName() == null || evaluation.getName().isBlank()) {
             throw new IllegalArgumentException("Evaluation name is required");
         }
-        if (evaluation.getPercentage() <= 0 || evaluation.getPercentage() > 100) {
-            throw new IllegalArgumentException("Evaluation percentage must be between 0 and 100");
-        }
-        if (evaluation.getGrade() != null && (evaluation.getGrade() < 0 || evaluation.getGrade() > 5)) {
-            throw new IllegalArgumentException("Evaluation grade must be between 0 and 5");
-        }
-    }
-
-    private BigDecimal toDecimal(Double value) {
-        return value == null ? null : BigDecimal.valueOf(value);
     }
 }

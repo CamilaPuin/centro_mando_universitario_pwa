@@ -22,15 +22,6 @@ import {
   publicarEstadoSincronizacion
 } from './entregas';
 
-function normalizarCalificacion(entrega: EntregaAcademica): number | null {
-  if (entrega.calificacion === undefined) return null;
-  const notaMaxima = entrega.notaMaxima ?? 5;
-  if (!Number.isFinite(entrega.calificacion) || !Number.isFinite(notaMaxima) || notaMaxima <= 0) {
-    throw new Error(`La calificación de "${entrega.titulo}" no se puede sincronizar.`);
-  }
-  return Math.round((entrega.calificacion / notaMaxima) * 500) / 100;
-}
-
 export function inicializarSincronizacion(
   databaseReady: Promise<IDBDatabase | undefined>
 ): () => void {
@@ -157,7 +148,7 @@ export function inicializarSincronizacion(
     const [tasksFromApi, remoteSessions, remoteGoal] = await Promise.all([
       apiRequest<RemoteTask[]>('/tasks'),
       apiRequest<RemoteStudySession[]>('/study/sessions'),
-      apiRequest<{ targetWeeklyMinutes: number; targetAverageGrade: number }>('/statistics/goals')
+      apiRequest<{ targetWeeklyMinutes: number }>('/statistics/goals')
     ]);
     const sessionsFromApi = [...remoteSessions];
     const localSessions = await listarSesionesEstudio(db);
@@ -241,16 +232,12 @@ export function inicializarSincronizacion(
       const evaluation = subjectsFromApi.find(item => item.id === subject.backendId)
         ?.evaluations?.find(item => item.name === delivery.titulo);
       let evaluationBackendId = evaluation?.id;
-      if (delivery.categoria === 'examen' || delivery.calificacion !== undefined || evaluationBackendId) {
+      if (delivery.categoria === 'examen' || evaluationBackendId) {
         const evaluationDate = delivery.fechaEntrega.length > 19
           ? delivery.fechaEntrega.slice(0, 19)
           : delivery.fechaEntrega;
         const evaluationPayload = {
           name: delivery.titulo,
-          grade: delivery.calificacion === undefined
-            ? evaluation?.grade ?? null
-            : normalizarCalificacion(delivery),
-          percentage: 100,
           evaluationDate
         };
         const remoteEvaluation = evaluationBackendId
@@ -279,18 +266,16 @@ export function inicializarSincronizacion(
     }
     const localGoal = await obtenerMetas(db);
     const goalFromApi = localGoal?.syncPending
-      ? await apiRequest<{ targetWeeklyMinutes: number; targetAverageGrade: number }>('/statistics/goals', {
+      ? await apiRequest<{ targetWeeklyMinutes: number }>('/statistics/goals', {
           method: 'PUT',
           body: JSON.stringify({
-            targetWeeklyMinutes: localGoal.minutosSemanales,
-            targetAverageGrade: localGoal.promedioDeseado
+            targetWeeklyMinutes: localGoal.minutosSemanales
           })
         })
       : remoteGoal;
     if (localGoal?.syncPending) {
       await guardarMetas(db, {
         minutosSemanales: goalFromApi.targetWeeklyMinutes,
-        promedioDeseado: goalFromApi.targetAverageGrade,
         syncPending: false
       });
     }
@@ -340,11 +325,6 @@ export function inicializarSincronizacion(
         estado: status,
         categoria: category,
         prioridad: task.priority.toLowerCase() as EntregaAcademica['prioridad'],
-        ...(evaluation
-          ? evaluation.grade == null ? {} : { calificacion: evaluation.grade, notaMaxima: 5 }
-          : cached?.calificacion === undefined
-            ? {}
-            : { calificacion: cached.calificacion, notaMaxima: cached.notaMaxima ?? 5 }),
         ...((evaluation?.id ?? cached?.evaluationBackendId) === undefined
           ? {}
           : { evaluationBackendId: evaluation?.id ?? cached?.evaluationBackendId }),
@@ -389,7 +369,6 @@ export function inicializarSincronizacion(
     goalsTransaction.objectStore('metas').put({
       id: 'actual',
       minutosSemanales: goalFromApi.targetWeeklyMinutes,
-      promedioDeseado: goalFromApi.targetAverageGrade,
       actualizadoEn: new Date().toISOString()
     });
     await new Promise<void>((resolve, reject) => {
@@ -467,14 +446,12 @@ export function inicializarSincronizacion(
         body: JSON.stringify({ state })
       });
       let evaluationBackendId = entrega.evaluationBackendId;
-      if (entrega.categoria === 'examen' || entrega.calificacion !== undefined || evaluationBackendId) {
+      if (entrega.categoria === 'examen' || evaluationBackendId) {
         const evaluationDate = entrega.fechaEntrega.length > 19
           ? entrega.fechaEntrega.slice(0, 19)
           : entrega.fechaEntrega;
         const evaluationPayload = {
           name: entrega.titulo,
-          grade: normalizarCalificacion(entrega),
-          percentage: 100,
           evaluationDate
         };
         const evaluation = evaluationBackendId
@@ -592,7 +569,6 @@ interface RemoteNote {
 interface RemoteEvaluation {
   id: number;
   name: string;
-  grade: number | null;
 }
 
 interface RemoteTask {
