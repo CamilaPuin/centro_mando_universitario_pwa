@@ -225,11 +225,12 @@ export function inicializarAutenticacion(
 
         if (registerMode && !navigator.onLine) {
           await guardarCredencial(db, user, pass, first, last, true);
+          iniciarSesionLocal(user);
           await guardarPerfil(db, {
             nombre: `${first} ${last}`.trim(),
             nombreUsuario: user
           });
-          iniciarSesionLocal(user);
+          window.dispatchEvent(new Event('profile-updated'));
           authStatus.textContent = 'Cuenta guardada en este dispositivo. Se creará y sincronizará cuando vuelva internet.';
         } else if (registerMode) {
           await registrarCuenta({ username: user, password: pass, firstName: first, lastName: last });
