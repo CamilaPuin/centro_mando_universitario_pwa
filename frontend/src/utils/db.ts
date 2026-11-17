@@ -25,6 +25,19 @@ export interface PerfilEstudiante {
   nombreUsuario: string;
   foto?: Blob;
   actualizadoEn: string;
+  syncPending?: boolean;
+}
+
+export interface CredencialOffline {
+  username: string;
+  firstName: string;
+  lastName: string;
+  salt: Uint8Array;
+  verifier: Uint8Array;
+  passwordKey: CryptoKey;
+  passwordIv: Uint8Array;
+  encryptedPassword: ArrayBuffer;
+  pendingRegistration: boolean;
 }
 
 export interface MetasEstudio {
@@ -105,6 +118,17 @@ export interface CambioPendiente {
   creadoEn: string;
 }
 
+export function describirErrorConexionBaseDatos(error: unknown): string | undefined {
+  const message = error instanceof Error ? error.message : String(error);
+  if (
+    (error instanceof DOMException && error.name === 'InvalidStateError') ||
+    /database connection is closing|database is closing/i.test(message)
+  ) {
+    return 'El almacenamiento local se está actualizando. La aplicación se recargará; vuelve a intentarlo en unos segundos. Tus datos guardados no se borraron.';
+  }
+  return undefined;
+}
+
 export function abrirBaseDeDatos(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (
@@ -116,7 +140,7 @@ export function abrirBaseDeDatos(): Promise<IDBDatabase> {
       return;
     }
 
-    const peticion = window.indexedDB.open('centro-mando-db', 5);
+    const peticion = window.indexedDB.open('centro-mando-db', 6);
 
     peticion.onupgradeneeded = event => {
       const db = peticion.result;
@@ -173,6 +197,10 @@ export function abrirBaseDeDatos(): Promise<IDBDatabase> {
           db.createObjectStore('metas', { keyPath: 'id' });
         }
       }
+
+      if (versionAnterior < 6 && !db.objectStoreNames.contains('authCredentials')) {
+        db.createObjectStore('authCredentials', { keyPath: 'username' });
+      }
     };
 
     peticion.onsuccess = () => {
@@ -180,11 +208,38 @@ export function abrirBaseDeDatos(): Promise<IDBDatabase> {
       db.onversionchange = () => {
         db.close();
         console.warn('La base de datos local cambió de versión; se cerró esta conexión para permitir la migración.');
+        window.setTimeout(() => window.location.reload(), 1200);
       };
       resolve(db);
     };
     peticion.onerror = () => reject(peticion.error);
     peticion.onblocked = () => reject(new Error('Cierra otras pestañas de la app para actualizar la base de datos.'));
+  });
+}
+
+export function obtenerCredencialOffline(
+  db: IDBDatabase,
+  username: string
+): Promise<CredencialOffline | undefined> {
+  return new Promise((resolve, reject) => {
+    const request = db.transaction('authCredentials', 'readonly')
+      .objectStore('authCredentials')
+      .get(username);
+    request.onsuccess = () => resolve(request.result as CredencialOffline | undefined);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export function guardarCredencialOffline(
+  db: IDBDatabase,
+  credential: CredencialOffline
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('authCredentials', 'readwrite');
+    tx.objectStore('authCredentials').put(credential);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error('No se pudo guardar la credencial local.'));
   });
 }
 

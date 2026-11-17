@@ -21,6 +21,7 @@ public class UserJpaAdapter implements UserRepositoryPort {
                 .password(user.getPassword())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
+                .profilePhoto(user.getProfilePhoto())
                 .build();
         UserEntity saved = jpaRepository.save(entity);
         return toDomain(saved);
@@ -36,6 +37,14 @@ public class UserJpaAdapter implements UserRepositoryPort {
         return jpaRepository.findById(id).map(this::toDomain);
     }
 
+    @Override
+    public void updateProfilePhoto(Long userId, byte[] photo) {
+        UserEntity entity = jpaRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User was not found"));
+        entity.setProfilePhoto(photo);
+        jpaRepository.save(entity);
+    }
+
     private User toDomain(UserEntity entity) {
         return User.builder()
                 .id(entity.getId())
@@ -43,6 +52,7 @@ public class UserJpaAdapter implements UserRepositoryPort {
                 .password(entity.getPassword())
                 .firstName(entity.getFirstName())
                 .lastName(entity.getLastName())
+                .profilePhoto(entity.getProfilePhoto())
                 .build();
     }
 }

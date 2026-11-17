@@ -7,12 +7,13 @@ import { inicializarPerfil } from './features/profile';
 import { inicializarPwa } from './features/pwa';
 import { inicializarSincronizacion } from './features/sync';
 import { inicializarTema } from './features/tema';
+import { isUserSessionActive, restaurarSesionGuardada } from './services/api';
 import { abrirBaseDeDatos } from './utils/db';
 import { NavegacionTabs } from './ui/NavegacionTabs';
 import { Encabezado } from './ui/Encabezado';
 import { ModuloAsignaturas } from './ui/modulos/asignaturas';
 import { ModuloCalendario } from './ui/modulos/calendario';
-import { DialogoCuenta } from './ui/modulos/cuenta';
+import { PantallaCuenta } from './ui/modulos/cuenta';
 import { ModuloDispositivo } from './ui/modulos/dispositivo';
 import { ModuloEntregas } from './ui/modulos/entregas';
 import { ModuloNotas } from './ui/modulos/notas';
@@ -22,6 +23,10 @@ import { ModuloResumen } from './ui/modulos/resumen';
 
 export function App() {
   const [tabActiva, setTabActiva] = useState('tab-resumen');
+  const [sesionActiva, setSesionActiva] = useState(() => {
+    restaurarSesionGuardada();
+    return isUserSessionActive();
+  });
   const databaseReady = useMemo(() =>
     'indexedDB' in window &&
     typeof window.indexedDB !== 'undefined' &&
@@ -33,10 +38,12 @@ export function App() {
       : Promise.resolve(undefined), []);
 
   useEffect(() => {
+    const actualizarSesion = (): void => setSesionActiva(isUserSessionActive());
+    window.addEventListener('auth-changed', actualizarSesion);
     inicializarTema();
     inicializarPwa();
     const limpiarNavegacion = inicializarNavegacion();
-    inicializarAutenticacion();
+    inicializarAutenticacion(databaseReady);
 
     const actualizarNavegacionSecundaria = (tabId: string): void => {
       document.querySelectorAll<HTMLButtonElement>('#mobile-nav-menu [data-tab]').forEach(menuItem => {
@@ -91,6 +98,7 @@ export function App() {
     inicializarPerfil(databaseReady);
 
     return () => {
+      window.removeEventListener('auth-changed', actualizarSesion);
       root?.removeEventListener('click', handleTabClick);
       limpiarNavegacion();
       limpiarSincronizacion();
@@ -98,23 +106,25 @@ export function App() {
   }, []);
 
   return (
-    <div className="app-container">
-      <Encabezado />
-      <main id="main-content">
-        <NavegacionTabs tabActiva={tabActiva} />
-        <ModuloResumen activo={tabActiva === 'tab-resumen'} databaseReady={databaseReady} />
-        <ModuloAsignaturas activo={tabActiva === 'tab-asignaturas'} databaseReady={databaseReady} />
-        <ModuloEntregas activo={tabActiva === 'tab-entregas'} databaseReady={databaseReady} />
-        <ModuloCalendario activo={tabActiva === 'tab-calendario'} databaseReady={databaseReady} />
-        <ModuloProgreso activo={tabActiva === 'tab-progreso'} databaseReady={databaseReady} />
-        <ModuloNotas activo={tabActiva === 'tab-notas'} databaseReady={databaseReady} />
-        <ModuloPomodoro activo={tabActiva === 'tab-pomodoro'} />
-        <ModuloDispositivo activo={tabActiva === 'tab-dispositivo'} />
-      </main>
-      <DialogoCuenta />
-      <footer className="app-footer">
-        Centro de Mando Universitario Personal • PWA de Gestión Académica • 2026
-      </footer>
-    </div>
+    <>
+      <div className="app-container" hidden={!sesionActiva}>
+        <Encabezado />
+        <main id="main-content">
+          <NavegacionTabs tabActiva={tabActiva} />
+          <ModuloResumen activo={tabActiva === 'tab-resumen'} databaseReady={databaseReady} />
+          <ModuloAsignaturas activo={tabActiva === 'tab-asignaturas'} databaseReady={databaseReady} />
+          <ModuloEntregas activo={tabActiva === 'tab-entregas'} databaseReady={databaseReady} />
+          <ModuloCalendario activo={tabActiva === 'tab-calendario'} databaseReady={databaseReady} />
+          <ModuloProgreso activo={tabActiva === 'tab-progreso'} databaseReady={databaseReady} />
+          <ModuloNotas activo={tabActiva === 'tab-notas'} databaseReady={databaseReady} />
+          <ModuloPomodoro activo={tabActiva === 'tab-pomodoro'} />
+          <ModuloDispositivo activo={tabActiva === 'tab-dispositivo'} />
+        </main>
+        <footer className="app-footer">
+          Centro de Mando Universitario Personal • PWA de Gestión Académica • 2026
+        </footer>
+      </div>
+      <PantallaCuenta oculta={sesionActiva} />
+    </>
   );
 }

@@ -2,6 +2,8 @@ import { API_BASE_URL } from '../config';
 
 const TOKEN_KEY = 'centro-mando-api-token';
 const USERNAME_KEY = 'centro-mando-api-username';
+let activeUsername: string | undefined;
+let remoteSessionActive = false;
 
 export interface ApiRequestOptions extends Omit<RequestInit, 'headers'> {
   headers?: HeadersInit;
@@ -13,17 +15,40 @@ export interface AuthSession {
   username: string;
 }
 
+export function getCurrentUsername(): string | undefined {
+  return activeUsername;
+}
+
+export function restaurarSesionGuardada(): void {
+  try {
+    const token = localStorage.getItem(TOKEN_KEY);
+    const username = localStorage.getItem(USERNAME_KEY);
+    if (token && username) {
+      activeUsername = username;
+      remoteSessionActive = true;
+    }
+  } catch {
+    activeUsername = undefined;
+    remoteSessionActive = false;
+  }
+}
+
+export function isUserSessionActive(): boolean {
+  return activeUsername !== undefined;
+}
+
+export function isOfflineSession(): boolean {
+  return activeUsername !== undefined && !remoteSessionActive;
+}
+
 export function getAuthSession(): AuthSession | undefined {
+  if (!remoteSessionActive) return undefined;
   try {
     const token = localStorage.getItem(TOKEN_KEY);
     const username = localStorage.getItem(USERNAME_KEY);
     return token && username ? { token, username } : undefined;
-  } catch (error) {
-    throw new Error(
-      `No se pudo acceder al almacenamiento de sesión del navegador: ${
-        error instanceof Error ? error.message : 'almacenamiento no disponible.'
-      }`
-    );
+  } catch {
+    throw new Error('No se pudo acceder a la sesión guardada en este dispositivo.');
   }
 }
 
@@ -35,29 +60,41 @@ function saveAuthSession(token: string, username: string): void {
   try {
     localStorage.setItem(TOKEN_KEY, token);
     localStorage.setItem(USERNAME_KEY, username);
-  } catch (error) {
+  } catch {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USERNAME_KEY);
-    throw new Error(
-      `El backend autenticó la cuenta, pero no se pudo guardar la sesión para usarla en la PWA: ${
-        error instanceof Error ? error.message : 'almacenamiento no disponible.'
-      }`
-    );
+    throw new Error('No se pudo guardar la sesión en este dispositivo.');
   }
+  activeUsername = username;
+  remoteSessionActive = true;
   window.dispatchEvent(new Event('auth-changed'));
+}
+
+export function iniciarSesionLocal(username: string): void {
+  activeUsername = username;
+  remoteSessionActive = false;
+  window.dispatchEvent(new Event('auth-changed'));
+}
+
+function clearRemoteSession(): void {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USERNAME_KEY);
+  } catch {
+    throw new Error('No se pudo cerrar la sesión guardada en este dispositivo.');
+  }
+  remoteSessionActive = false;
 }
 
 export function clearAuthSession(): void {
   try {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USERNAME_KEY);
-  } catch (error) {
-    throw new Error(
-      `No se pudo borrar la sesión local: ${
-        error instanceof Error ? error.message : 'almacenamiento no disponible.'
-      }`
-    );
+  } catch {
+    throw new Error('No se pudo cerrar la sesión guardada en este dispositivo.');
   }
+  activeUsername = undefined;
+  remoteSessionActive = false;
   window.dispatchEvent(new Event('auth-changed'));
 }
 
@@ -79,39 +116,48 @@ export async function apiRequest<T>(
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, { ...requestOptions, headers });
-  } catch (error) {
+  } catch {
     if (!navigator.onLine) {
-      throw new Error('No hay conexión. El inicio de sesión requiere internet; puedes seguir usando tus datos locales y sincronizar al reconectarte.');
+      throw new Error('No hay conexión. Puedes continuar con la sesión local y sincronizar al reconectarte.');
     }
-    throw new Error(
-      `No se pudo conectar con el backend: ${
-        error instanceof Error ? error.message : 'revisa la dirección de la API y que el servidor esté activo.'
-      }`
-    );
+    throw new Error('No se pudo conectar con el servicio. Revisa tu conexión e inténtalo de nuevo.');
   }
   if (!response.ok) {
-    if (response.status === 401 && authenticated) clearAuthSession();
-    const isRegistrationRequest = path === '/users/register';
-    let message = response.status === 405 && isRegistrationRequest
-      ? 'No se pudo crear tu cuenta porque el servicio de registro no está disponible en este momento. Inténtalo más tarde.'
-      : `No se pudo completar la solicitud (código ${response.status}).`;
-    if (response.status !== 405) {
-      try {
-        const errorBody: unknown = await response.json();
-        if (typeof errorBody === 'object' && errorBody !== null) {
-          const body = errorBody as { message?: unknown; error?: unknown; detail?: unknown };
-          const detail = body.message ?? body.detail ?? body.error;
-          if (typeof detail === 'string' && detail.trim()) message = detail;
-        }
-      } catch {
-        // The response may not have a JSON body.
-      }
+    if (response.status === 401 && authenticated) {
+      clearRemoteSession();
+      window.dispatchEvent(new Event('auth-token-expired'));
     }
-    throw new Error(message);
+    throw new Error(mensajeDeErrorApi(response.status, path, authenticated));
   }
 
   if (response.status === 204) return undefined as T;
-  return await response.json() as T;
+  try {
+    return await response.json() as T;
+  } catch {
+    throw new Error('No se pudo procesar la respuesta. Inténtalo de nuevo más tarde.');
+  }
+}
+
+function mensajeDeErrorApi(status: number, path: string, authenticated: boolean): string {
+  if (status === 405 && path === '/users/register') {
+    return 'No se pudo crear tu cuenta porque el servicio de registro no está disponible en este momento. Inténtalo más tarde.';
+  }
+  if (status === 401) {
+    return path === '/users/login'
+      ? 'No se pudo iniciar sesión. Revisa el usuario y la contraseña.'
+      : authenticated
+        ? 'Tu sesión ha vencido. Inicia sesión de nuevo para sincronizar tus datos.'
+        : 'No se pudieron validar tus datos. Revísalos e inténtalo de nuevo.';
+  }
+  if (status === 400 || status === 422) {
+    return 'No se pudo guardar la información. Revisa los datos e inténtalo de nuevo.';
+  }
+  if (status === 403) return 'No tienes permiso para realizar esta acción.';
+  if (status === 404) return 'No encontramos la información solicitada. Actualiza la pantalla e inténtalo de nuevo.';
+  if (status === 409) return 'La información ya cambió. Actualiza la pantalla e inténtalo de nuevo.';
+  if (status === 429) return 'Hay muchas solicitudes en este momento. Espera un poco e inténtalo de nuevo.';
+  if (status >= 500) return 'El servicio no está disponible en este momento. Inténtalo de nuevo más tarde.';
+  return 'No se pudo completar la solicitud. Inténtalo de nuevo.';
 }
 
 export async function iniciarSesion(username: string, password: string): Promise<void> {

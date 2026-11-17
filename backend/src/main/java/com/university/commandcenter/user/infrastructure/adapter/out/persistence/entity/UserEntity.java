@@ -32,6 +32,9 @@ public class UserEntity {
     @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
+    @Column(name = "profile_photo", columnDefinition = "BYTEA")
+    private byte[] profilePhoto;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

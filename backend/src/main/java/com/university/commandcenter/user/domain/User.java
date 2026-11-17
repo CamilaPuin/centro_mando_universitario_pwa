@@ -11,6 +11,7 @@ public class User {
     private String password;
     private final String firstName;
     private final String lastName;
+    private final byte[] profilePhoto;
 
     public void changePassword(String newPassword) {
         if (newPassword == null || newPassword.length() < 6) {
