@@ -4,3 +4,6 @@
 target
 lib
 *.log
+.env
+.env.*
+node_modules

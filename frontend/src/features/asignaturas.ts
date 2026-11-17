@@ -8,22 +8,30 @@ import {
   type Asignatura,
   type ClaseHorario
 } from '../utils/db';
-import { apiRequest, isAuthenticated, isUserSessionActive } from '../services/api';
+import { apiRequest, isAuthenticated } from '../services/api';
 
-const DIAS_BACKEND = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+const DIAS_API = [
+  'SUNDAY',
+  'MONDAY',
+  'TUESDAY',
+  'WEDNESDAY',
+  'THURSDAY',
+  'FRIDAY',
+  'SATURDAY'
+];
 
 export interface DatosAsignaturas {
   asignaturas: Asignatura[];
   clases: ClaseHorario[];
 }
 
-export interface DatosClase {
-  id?: number;
+export interface DatosNuevaClase {
   asignaturaId: number;
   diaSemana: number;
   horaInicio: string;
   horaFin: string;
   aula: string;
+  id?: number;
 }
 
 async function obtenerBaseDeDatos(
@@ -45,22 +53,26 @@ export async function obtenerDatosAsignaturas(
   return { asignaturas, clases };
 }
 
-export async function guardarAsignaturaLocalYSincronizar(
+export async function guardarAsignaturaMateria(
   databaseReady: Promise<IDBDatabase | undefined>,
-  datos: { id?: number; nombre: string }
+  nombreOriginal: string,
+  id?: number
 ): Promise<string> {
   const db = await obtenerBaseDeDatos(databaseReady);
-  const nombre = datos.nombre.trim();
+  const nombre = nombreOriginal.trim();
   if (!nombre) throw new Error('Escribe el nombre de la asignatura.');
-
-  await guardarAsignatura(db, {
-    ...(datos.id === undefined ? {} : { id: datos.id }),
+  const existing = id === undefined
+    ? undefined
+    : (await listarAsignaturas(db)).find(asignatura => asignatura.id === id);
+  const guardada = await guardarAsignatura(db, {
+    ...(id === undefined ? {} : { id }),
+    ...(existing?.backendId === undefined ? {} : { backendId: existing.backendId }),
+    ...(existing ? { creadoEn: existing.creadoEn } : {}),
     nombre,
     syncPending: true
   });
-  const asignaturas = await listarAsignaturas(db);
-  const guardada = asignaturas.find(item => item.nombre === nombre);
-  if (guardada && isAuthenticated() && navigator.onLine) {
+
+  if (isAuthenticated() && navigator.onLine) {
     try {
       const payload = { name: nombre, teacher: '', schedule: '', credits: 3 };
       const response = guardada.backendId
@@ -75,128 +87,115 @@ export async function guardarAsignaturaLocalYSincronizar(
       await guardarAsignatura(db, { ...guardada, backendId: response.id, syncPending: false });
       return 'Asignatura guardada.';
     } catch (error) {
-      return `Asignatura guardada. Se volverá a sincronizar automáticamente: ${
-        error instanceof Error ? error.message : 'No se pudo completar la sincronización.'
-      }`;
+      return `Asignatura guardada. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
     }
   }
 
-  return isUserSessionActive()
+  return isAuthenticated()
     ? 'Asignatura guardada. Se sincronizará automáticamente cuando vuelva la conexión.'
     : 'Asignatura guardada en este dispositivo.';
 }
 
-export async function eliminarAsignaturaLocalYSincronizar(
+export async function eliminarAsignaturaMateria(
   databaseReady: Promise<IDBDatabase | undefined>,
   asignatura: Asignatura
-): Promise<void> {
+): Promise<string> {
   const db = await obtenerBaseDeDatos(databaseReady);
   if (asignatura.id === undefined) throw new Error('No se pudo abrir el almacenamiento local.');
   if (asignatura.backendId && (!isAuthenticated() || !navigator.onLine)) {
-    throw new Error(isUserSessionActive()
-      ? 'Recupera la conexión para eliminar esta asignatura sincronizada.'
-      : 'Inicia sesión y recupera la conexión antes de eliminar esta asignatura sincronizada.');
+    throw new Error('Inicia sesión y recupera la conexión antes de eliminar esta asignatura sincronizada.');
   }
   if (isAuthenticated() && navigator.onLine && asignatura.backendId) {
     await apiRequest<void>(`/subjects/${asignatura.backendId}`, { method: 'DELETE' });
   }
   await eliminarAsignatura(db, asignatura.id);
+  return `Se eliminó ${asignatura.nombre}.`;
 }
 
-export async function guardarClaseLocalYSincronizar(
+export async function guardarClaseMateria(
   databaseReady: Promise<IDBDatabase | undefined>,
-  datos: DatosClase
+  datos: DatosNuevaClase
 ): Promise<string> {
   const db = await obtenerBaseDeDatos(databaseReady);
-  if (!Number.isInteger(datos.asignaturaId) || datos.asignaturaId <= 0) {
-    throw new Error('Selecciona una asignatura.');
-  }
-  if (!Number.isInteger(datos.diaSemana) || datos.diaSemana < 0 || datos.diaSemana > 6) {
+  const { asignaturaId, diaSemana, horaInicio, horaFin, aula, id } = datos;
+  if (!Number.isInteger(asignaturaId)) throw new Error('Selecciona una asignatura.');
+  if (!Number.isInteger(diaSemana) || diaSemana < 0 || diaSemana > 6) {
     throw new Error('Selecciona un día válido.');
   }
-  if (!datos.horaInicio || !datos.horaFin || datos.horaInicio >= datos.horaFin) {
+  if (!horaInicio || !horaFin || horaInicio >= horaFin) {
     throw new Error('La hora de fin debe ser posterior a la hora de inicio.');
   }
 
-  const clases = await listarClasesHorario(db);
+  const [clases, asignaturas] = await Promise.all([
+    listarClasesHorario(db),
+    listarAsignaturas(db)
+  ]);
   const cruza = clases.some(clase =>
-    clase.id !== datos.id &&
-    clase.diaSemana === datos.diaSemana &&
-    datos.horaInicio < clase.horaFin &&
-    datos.horaFin > clase.horaInicio
+    clase.id !== id &&
+    clase.diaSemana === diaSemana &&
+    horaInicio < clase.horaFin &&
+    horaFin > clase.horaInicio
   );
   if (cruza) throw new Error('Ese horario se cruza con otra clase del mismo día.');
 
-  const asignaturaSeleccionada = (await listarAsignaturas(db))
-    .find(asignatura => asignatura.id === datos.asignaturaId);
-  if (!asignaturaSeleccionada) throw new Error('No se encontró la asignatura seleccionada.');
-
-  const claseGuardada = await guardarClaseHorario(db, {
-    ...(datos.id === undefined ? {} : { id: datos.id }),
-    asignaturaId: datos.asignaturaId,
-    diaSemana: datos.diaSemana,
-    horaInicio: datos.horaInicio,
-    horaFin: datos.horaFin,
-    aula: datos.aula.trim(),
+  const asignatura = asignaturas.find(item => item.id === asignaturaId);
+  if (!asignatura) throw new Error('No se encontró la asignatura seleccionada.');
+  const existing = id === undefined ? undefined : clases.find(clase => clase.id === id);
+  const guardada = await guardarClaseHorario(db, {
+    ...(id === undefined ? {} : { id }),
+    ...(existing?.backendId === undefined ? {} : { backendId: existing.backendId }),
+    asignaturaId,
+    diaSemana,
+    horaInicio,
+    horaFin,
+    aula: aula.trim(),
     syncPending: true
   });
 
-  if (!isAuthenticated() || !navigator.onLine) {
-    return isUserSessionActive()
-      ? 'Horario guardado. Se sincronizará automáticamente cuando vuelva la conexión.'
-      : 'Horario guardado en este dispositivo.';
-  }
-  if (!asignaturaSeleccionada.backendId) {
-    return 'Horario guardado. Se sincronizará junto con la asignatura al recuperar la conexión.';
+  if (isAuthenticated() && navigator.onLine) {
+    if (!asignatura.backendId) {
+      return 'Horario guardado. Se sincronizará junto con la asignatura al recuperar la conexión.';
+    }
+    try {
+      const payload = {
+        subjectId: asignatura.backendId,
+        dayOfWeek: DIAS_API[diaSemana],
+        startTime: horaInicio,
+        endTime: horaFin,
+        location: aula.trim()
+      };
+      const response = guardada.backendId
+        ? await apiRequest<{ id: number }>(`/calendar/class-schedules/${guardada.backendId}`, {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+          })
+        : await apiRequest<{ id: number }>('/calendar/class-schedules', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+      await guardarClaseHorario(db, { ...guardada, backendId: response.id, syncPending: false });
+      return 'Horario guardado.';
+    } catch (error) {
+      return `Horario guardado. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
+    }
   }
 
-  try {
-    const payload = {
-      subjectId: asignaturaSeleccionada.backendId,
-      dayOfWeek: DIAS_BACKEND[datos.diaSemana],
-      startTime: datos.horaInicio,
-      endTime: datos.horaFin,
-      location: datos.aula.trim()
-    };
-    const response = claseGuardada.backendId
-      ? await apiRequest<{ id: number }>(`/calendar/class-schedules/${claseGuardada.backendId}`, {
-          method: 'PUT',
-          body: JSON.stringify(payload)
-        })
-      : await apiRequest<{ id: number }>('/calendar/class-schedules', {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        });
-    await guardarClaseHorario(db, { ...claseGuardada, backendId: response.id, syncPending: false });
-    return 'Horario guardado.';
-  } catch (error) {
-    return `Horario guardado. Se volverá a sincronizar automáticamente: ${
-      error instanceof Error ? error.message : 'No se pudo completar la sincronización.'
-    }`;
-  }
+  return isAuthenticated()
+    ? 'Horario guardado. Se sincronizará automáticamente cuando vuelva la conexión.'
+    : 'Horario guardado en este dispositivo.';
 }
 
-export async function eliminarClaseLocalYSincronizar(
+export async function eliminarClaseMateria(
   databaseReady: Promise<IDBDatabase | undefined>,
   clase: ClaseHorario
 ): Promise<void> {
   const db = await obtenerBaseDeDatos(databaseReady);
   if (clase.id === undefined) throw new Error('No se pudo abrir el almacenamiento local.');
   if (clase.backendId && (!isAuthenticated() || !navigator.onLine)) {
-    throw new Error(isUserSessionActive()
-      ? 'Recupera la conexión para eliminar esta clase sincronizada.'
-      : 'Inicia sesión y recupera la conexión antes de eliminar esta clase sincronizada.');
+    throw new Error('Inicia sesión y recupera la conexión antes de eliminar esta clase sincronizada.');
   }
   if (isAuthenticated() && navigator.onLine && clase.backendId) {
     await apiRequest<void>(`/calendar/class-schedules/${clase.backendId}`, { method: 'DELETE' });
   }
   await eliminarClaseHorario(db, clase.id);
-}
-
-export function notificarAsignaturasActualizadas(): void {
-  window.dispatchEvent(new Event('asignaturas-actualizadas'));
-}
-
-export function notificarHorarioActualizado(): void {
-  window.dispatchEvent(new Event('horario-actualizado'));
 }

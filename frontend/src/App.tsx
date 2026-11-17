@@ -4,7 +4,6 @@ import { inicializarNavegacion } from './features/navegacion';
 import { inicializarNotificaciones } from './features/notificaciones';
 import { inicializarPomodoro } from './features/pomodoro';
 import { inicializarPerfil } from './features/profile';
-import { inicializarProgreso } from './features/progreso';
 import { inicializarPwa } from './features/pwa';
 import { inicializarSincronizacion } from './features/sync';
 import { inicializarTema } from './features/tema';
@@ -12,15 +11,15 @@ import { isUserSessionActive, restaurarSesionGuardada } from './services/api';
 import { abrirBaseDeDatos } from './utils/db';
 import { NavegacionTabs } from './ui/NavegacionTabs';
 import { Encabezado } from './ui/Encabezado';
-import { ModuloCalendario } from './ui/modulos/calendario';
-import { ModuloResumen } from './ui/modulos/resumen';
 import { ModuloAsignaturas } from './ui/modulos/asignaturas';
+import { ModuloCalendario } from './ui/modulos/calendario';
+import { PantallaCuenta } from './ui/modulos/cuenta';
 import { ModuloDispositivo } from './ui/modulos/dispositivo';
-import { ModuloNotas } from './ui/modulos/notas';
 import { ModuloEntregas } from './ui/modulos/entregas';
+import { ModuloNotas } from './ui/modulos/notas';
 import { ModuloPomodoro } from './ui/modulos/pomodoro';
 import { ModuloProgreso } from './ui/modulos/progreso';
-import { PantallaCuenta } from './ui/modulos/cuenta';
+import { ModuloResumen } from './ui/modulos/resumen';
 
 export function App() {
   const [tabActiva, setTabActiva] = useState('tab-resumen');
@@ -94,15 +93,15 @@ export function App() {
     root?.addEventListener('click', handleTabClick);
 
     inicializarPomodoro(databaseReady);
-    inicializarSincronizacion(databaseReady);
+    const limpiarSincronizacion = inicializarSincronizacion(databaseReady);
     inicializarNotificaciones(databaseReady);
-    inicializarProgreso(databaseReady);
     inicializarPerfil(databaseReady);
 
     return () => {
       window.removeEventListener('auth-changed', actualizarSesion);
       root?.removeEventListener('click', handleTabClick);
       limpiarNavegacion();
+      limpiarSincronizacion();
     };
   }, []);
 
@@ -114,12 +113,12 @@ export function App() {
           <NavegacionTabs tabActiva={tabActiva} />
           <ModuloResumen activo={tabActiva === 'tab-resumen'} databaseReady={databaseReady} />
           <ModuloAsignaturas activo={tabActiva === 'tab-asignaturas'} databaseReady={databaseReady} />
+          <ModuloEntregas activo={tabActiva === 'tab-entregas'} databaseReady={databaseReady} />
           <ModuloCalendario activo={tabActiva === 'tab-calendario'} databaseReady={databaseReady} />
-          <ModuloDispositivo activo={tabActiva === 'tab-dispositivo'} />
+          <ModuloProgreso activo={tabActiva === 'tab-progreso'} databaseReady={databaseReady} />
           <ModuloNotas activo={tabActiva === 'tab-notas'} databaseReady={databaseReady} />
-          <ModuloEntregas activo={tabActiva === 'tab-entregas'} />
           <ModuloPomodoro activo={tabActiva === 'tab-pomodoro'} />
-          <ModuloProgreso activo={tabActiva === 'tab-progreso'} />
+          <ModuloDispositivo activo={tabActiva === 'tab-dispositivo'} />
         </main>
         <footer className="app-footer">
           Centro de Mando Universitario Personal • PWA de Gestión Académica • 2026

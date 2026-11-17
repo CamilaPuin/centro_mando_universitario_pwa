@@ -27,7 +27,14 @@ export function ModuloPomodoro({ activo }: ModuloPomodoroProps): ReactElement {
           <button id="btn-pomo-reset" className="btn-pomo btn-secondary" type="button">Reiniciar</button>
           <button id="btn-pomo-break" className="btn-pomo btn-secondary" type="button">+5 min Descanso</button>
           <button id="btn-pomo-stopwatch" className="btn-pomo btn-secondary" type="button">Cronómetro libre</button>
-          <button id="btn-focus-mode" className="btn-pomo btn-secondary" type="button" aria-pressed="false">Activar modo enfoque</button>
+          <button
+            id="btn-focus-mode"
+            className="btn-pomo btn-secondary"
+            type="button"
+            aria-pressed="false"
+          >
+            Activar modo enfoque
+          </button>
         </div>
         <p id="pomo-status" className="device-status" role="status" aria-live="polite">
           Las sesiones se registran al pausar, reiniciar o completar el enfoque.

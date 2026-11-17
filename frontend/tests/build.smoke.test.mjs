@@ -33,6 +33,13 @@ test('production build contains the React app, PWA manifest, and service worker'
   assert.match(applicationBundle, /auth-screen/);
   assert.doesNotMatch(applicationBundle, /auth-dialog/);
   assert.match(applicationBundle, /Así va tu día/);
+  assert.match(applicationBundle, /Mis asignaturas/);
+  assert.match(applicationBundle, /Entrega o evaluación/);
+  assert.match(applicationBundle, /Metas semanales/);
+  assert.match(applicationBundle, /Bitácora rápida por asignatura/);
+  assert.match(applicationBundle, /Cronómetro y Modo Pomodoro/);
+  assert.match(applicationBundle, /Recordatorios de estudio/);
+  assert.match(applicationBundle, /Inicia sesión o crea una cuenta/);
   assert.match(applicationBundle, /Cambiar a modo oscuro/);
   assert.match(applicationBundle, /Tomar foto/);
   assert.match(applicationBundle, /Recordatorios de estudio/);
