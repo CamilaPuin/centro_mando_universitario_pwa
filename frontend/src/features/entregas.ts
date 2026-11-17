@@ -33,8 +33,6 @@ export interface FormularioEntrega {
   prioridad: string;
   categoria: string;
   estado: string;
-  calificacion: string;
-  notaMaxima: string;
   detalle: string;
 }
 
@@ -92,18 +90,6 @@ export async function guardarEntrega(
     throw new Error('Selecciona una importancia, categoría y estado válidos.');
   }
 
-  const notaMaxima = Number(formulario.notaMaxima);
-  const calificacion = formulario.calificacion.trim() === ''
-    ? undefined
-    : Number(formulario.calificacion);
-  if (!Number.isFinite(notaMaxima) || notaMaxima <= 0) {
-    throw new Error('La nota máxima debe ser mayor que cero.');
-  }
-  if (calificacion !== undefined &&
-      (!Number.isFinite(calificacion) || calificacion < 0 || calificacion > notaMaxima)) {
-    throw new Error('La calificación debe estar entre cero y la nota máxima.');
-  }
-
   const nombreAsignatura = formulario.asignaturaSeleccionada === '__otra__'
     ? formulario.otraAsignatura.trim()
     : formulario.asignaturaSeleccionada.trim();
@@ -134,8 +120,6 @@ export async function guardarEntrega(
     fechaEntrega: formulario.fechaEntrega,
     prioridad,
     categoria,
-    ...(calificacion === undefined ? {} : { calificacion }),
-    notaMaxima,
     detalle: formulario.detalle.trim(),
     estado
   });

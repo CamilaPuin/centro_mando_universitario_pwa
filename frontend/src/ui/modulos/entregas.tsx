@@ -33,8 +33,6 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
   const [prioridad, setPrioridad] = useState('media');
   const [categoria, setCategoria] = useState('tarea');
   const [estadoEntrega, setEstadoEntrega] = useState('pendiente');
-  const [calificacion, setCalificacion] = useState('');
-  const [notaMaxima, setNotaMaxima] = useState('5');
   const [detalle, setDetalle] = useState('');
   const [estado, setEstado] = useState('');
   const cargaInicialDisparada = useRef(false);
@@ -91,8 +89,6 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
     setPrioridad('media');
     setCategoria('tarea');
     setEstadoEntrega('pendiente');
-    setCalificacion('');
-    setNotaMaxima('5');
     setDetalle('');
   };
 
@@ -111,8 +107,6 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
     setPrioridad(entrega.prioridad ?? 'media');
     setEstadoEntrega(entrega.estado);
     setCategoria(entrega.categoria ?? 'tarea');
-    setCalificacion(entrega.calificacion === undefined ? '' : String(entrega.calificacion));
-    setNotaMaxima(String(entrega.notaMaxima ?? 5));
     setDetalle(entrega.detalle);
     document.getElementById('delivery-title-input')?.focus();
   };
@@ -130,8 +124,6 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
         prioridad,
         categoria,
         estado: estadoEntrega,
-        calificacion,
-        notaMaxima,
         detalle
       } satisfies FormularioEntrega);
       limpiarFormulario();
@@ -307,34 +299,6 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
             </select>
           </div>
           <div className="form-group">
-            <label htmlFor="delivery-grade-input">Calificación</label>
-            <input
-              id="delivery-grade-input"
-              className="form-control"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Ej. 4,5"
-              value={calificacion}
-              onChange={event => setCalificacion(event.currentTarget.value)}
-            />
-          </div>
-          <div className="form-group">
-            <label htmlFor="delivery-grade-max-input">
-              Nota máxima <span className="required-mark" aria-hidden="true">*</span>
-            </label>
-            <input
-              id="delivery-grade-max-input"
-              className="form-control"
-              type="number"
-              min="0.01"
-              step="0.01"
-              required
-              value={notaMaxima}
-              onChange={event => setNotaMaxima(event.currentTarget.value)}
-            />
-          </div>
-          <div className="form-group">
             <label htmlFor="delivery-detail-input">Detalles</label>
             <textarea
               id="delivery-detail-input"
@@ -374,9 +338,6 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
                     <p>
                       {entrega.asignatura} • {entrega.categoria ?? 'tarea'} •
                       {' '}{entrega.fechaEntrega ? new Date(entrega.fechaEntrega).toLocaleString() : 'Sin fecha'}
-                      {entrega.calificacion === undefined
-                        ? ''
-                        : ` • ${entrega.calificacion}/${entrega.notaMaxima ?? 5}`}
                     </p>
                     <p>{entrega.detalle}</p>
                     <button className="btn btn-load" type="button" onClick={() => editarEntrega(entrega)}>
@@ -417,9 +378,9 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
                       </p>
                       <p>
                         {entrega.categoria ?? 'tarea'} · Importancia: {entrega.prioridad ?? 'media'} ·
-                        {' '}{entrega.calificacion === undefined
-                          ? 'Sin calificación'
-                          : `Calificación: ${entrega.calificacion} / ${entrega.notaMaxima ?? 5}`}
+                        {' '}Estado: {entrega.estado === 'entregada'
+                          ? 'Entregada'
+                          : entrega.estado === 'en-progreso' ? 'En progreso' : 'Pendiente'}
                       </p>
                       <button className="btn btn-load" type="button" onClick={() => editarEntrega(entrega)}>
                         Editar

@@ -37,8 +37,6 @@ public class SubjectMapper {
         return Evaluation.builder()
                 .id(entity.getId())
                 .name(entity.getName())
-                .grade(entity.getGrade() != null ? entity.getGrade().doubleValue() : null)
-                .percentage(entity.getPercentage() != null ? entity.getPercentage().doubleValue() : 0.0)
                 .evaluationDate(entity.getEvaluationDate())
                 .build();
     }

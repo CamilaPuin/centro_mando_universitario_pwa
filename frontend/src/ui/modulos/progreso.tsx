@@ -16,7 +16,6 @@ export function ModuloProgreso({
 }: ModuloProgresoProps): ReactElement {
   const [datos, setDatos] = useState<DatosProgreso>();
   const [minutosMeta, setMinutosMeta] = useState('300');
-  const [promedioMeta, setPromedioMeta] = useState('4');
   const [estado, setEstado] = useState('');
   const [recarga, setRecarga] = useState(0);
 
@@ -28,7 +27,6 @@ export function ModuloProgreso({
         if (montado) {
           setDatos(resultado);
           setMinutosMeta(String(resultado.minutosMeta));
-          setPromedioMeta(String(resultado.promedioMeta));
           const errores = [resultado.errorSemanal, resultado.errorLogros].filter(Boolean);
           if (errores.length) setEstado(errores.join(' '));
         }
@@ -58,8 +56,7 @@ export function ModuloProgreso({
     try {
       const mensaje = await guardarMetasProgreso(
         databaseReady,
-        Number(minutosMeta),
-        Number(promedioMeta)
+        Number(minutosMeta)
       );
       setEstado(mensaje);
       setRecarga(actual => actual + 1);
@@ -88,23 +85,6 @@ export function ModuloProgreso({
                 placeholder="Ej. 300"
                 value={minutosMeta}
                 onChange={event => setMinutosMeta(event.currentTarget.value)}
-              />
-            </div>
-            <div className="form-group">
-              <label htmlFor="goal-average">
-                Promedio deseado (escala 0-5) <span className="required-mark" aria-hidden="true">*</span>
-              </label>
-              <input
-                id="goal-average"
-                className="form-control"
-                type="number"
-                min="0"
-                max="5"
-                step="0.1"
-                required
-                placeholder="Ej. 4,0"
-                value={promedioMeta}
-                onChange={event => setPromedioMeta(event.currentTarget.value)}
               />
             </div>
             <button className="btn btn-save" type="submit">Guardar metas</button>

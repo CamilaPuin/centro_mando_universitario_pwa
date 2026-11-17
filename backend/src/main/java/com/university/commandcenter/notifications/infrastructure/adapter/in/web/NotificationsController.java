@@ -64,11 +64,11 @@ public class NotificationsController {
         for (Subject subject : subjectUseCase.getSubjectsByUser(userId)) {
             for (Evaluation evaluation : subject.getEvaluations()) {
                 LocalDateTime evaluationDate = evaluation.getEvaluationDate();
-                if (evaluationDate == null || evaluation.getGrade() != null) {
+                if (evaluationDate == null || !evaluationDate.isAfter(now)) {
                     continue;
                 }
                 long hoursUntilDue = ChronoUnit.HOURS.between(now, evaluationDate);
-                if (evaluationDate.isBefore(now) || hoursUntilDue <= 72) {
+                if (hoursUntilDue <= 72) {
                     notifications.add(new Notification(
                             "EVALUATION_" + evaluation.getId(),
                             "EVALUATION_REMINDER",

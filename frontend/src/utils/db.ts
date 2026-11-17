@@ -43,7 +43,6 @@ export interface CredencialOffline {
 export interface MetasEstudio {
   id: 'actual';
   minutosSemanales: number;
-  promedioDeseado: number;
   actualizadoEn: string;
   syncPending?: boolean;
 }
@@ -105,8 +104,6 @@ export interface EntregaAcademica {
   estado: 'pendiente' | 'en-progreso' | 'entregada';
   categoria?: 'tarea' | 'proyecto' | 'examen' | 'otro';
   prioridad?: 'baja' | 'media' | 'alta';
-  calificacion?: number;
-  notaMaxima?: number;
   actualizadoEn: string;
 }
 
@@ -140,7 +137,7 @@ export function abrirBaseDeDatos(): Promise<IDBDatabase> {
       return;
     }
 
-    const peticion = window.indexedDB.open('centro-mando-db', 6);
+    const peticion = window.indexedDB.open('centro-mando-db', 7);
 
     peticion.onupgradeneeded = event => {
       const db = peticion.result;
@@ -200,6 +197,46 @@ export function abrirBaseDeDatos(): Promise<IDBDatabase> {
 
       if (versionAnterior < 6 && !db.objectStoreNames.contains('authCredentials')) {
         db.createObjectStore('authCredentials', { keyPath: 'username' });
+      }
+
+      if (versionAnterior < 7) {
+        const transaction = peticion.transaction;
+        if (!transaction) throw new Error('No se pudo actualizar el almacenamiento local.');
+
+        for (const storeName of ['entregas', 'metas', 'outbox']) {
+          if (!db.objectStoreNames.contains(storeName)) continue;
+          const request = transaction.objectStore(storeName).openCursor();
+          request.onsuccess = () => {
+            const cursor = request.result;
+            if (!cursor) return;
+
+            const record = cursor.value as Record<string, unknown>;
+            let changed = false;
+            const fields = storeName === 'entregas'
+              ? ['calificacion', 'notaMaxima']
+              : storeName === 'metas' ? ['promedioDeseado'] : [];
+            for (const field of fields) {
+              if (Object.prototype.hasOwnProperty.call(record, field)) {
+                delete record[field];
+                changed = true;
+              }
+            }
+            if (storeName === 'outbox') {
+              const payload = record.payload;
+              if (typeof payload === 'object' && payload !== null) {
+                const delivery = payload as Record<string, unknown>;
+                for (const field of ['calificacion', 'notaMaxima']) {
+                  if (Object.prototype.hasOwnProperty.call(delivery, field)) {
+                    delete delivery[field];
+                    changed = true;
+                  }
+                }
+              }
+            }
+            if (changed) cursor.update(record);
+            cursor.continue();
+          };
+        }
       }
     };
 

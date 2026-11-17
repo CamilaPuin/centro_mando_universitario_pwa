@@ -50,7 +50,6 @@ export function ModuloResumen({ activo, databaseReady }: ModuloResumenProps): Re
       <div className="hero-banner">
         <div className="hero-header">
           <div>
-            <p className="hero-badge">Tu espacio académico</p>
             <h1 className="hero-title">Así va tu día</h1>
           </div>
           <button className="hero-action" type="button" data-tab="tab-entregas" data-focus="delivery-title-input">

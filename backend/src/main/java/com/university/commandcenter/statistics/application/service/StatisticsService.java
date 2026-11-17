@@ -15,7 +15,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,7 +31,6 @@ import java.util.Map;
 public class StatisticsService implements ManageGoalsUseCase, StatisticsUseCase {
 
         private static final int DEFAULT_WEEKLY_MINUTES = 300;
-        private static final double DEFAULT_TARGET_GRADE = 3.0;
 
         private final UserGoalJpaRepository goalRepository;
         private final StudySessionRepositoryPort studySessionRepository;
@@ -47,23 +45,18 @@ public class StatisticsService implements ManageGoalsUseCase, StatisticsUseCase 
                                 .orElseGet(() -> StudyGoal.builder()
                                                 .userId(userId)
                                                 .targetWeeklyMinutes(DEFAULT_WEEKLY_MINUTES)
-                                                .targetAverageGrade(DEFAULT_TARGET_GRADE)
                                                 .build());
         }
 
         @Override
         @Transactional
-        public StudyGoal saveGoal(Long userId, int targetWeeklyMinutes, double targetAverageGrade) {
+        public StudyGoal saveGoal(Long userId, int targetWeeklyMinutes) {
                 if (targetWeeklyMinutes <= 0) {
                         throw new IllegalArgumentException("Weekly study target must be greater than zero");
-                }
-                if (targetAverageGrade < 0 || targetAverageGrade > 5) {
-                        throw new IllegalArgumentException("Target average grade must be between 0 and 5");
                 }
                 UserGoalEntity entity = goalRepository.findByUserId(userId)
                                 .orElseGet(() -> UserGoalEntity.builder().userId(userId).build());
                 entity.setTargetWeeklyMinutes(targetWeeklyMinutes);
-                entity.setTargetGpa(BigDecimal.valueOf(targetAverageGrade));
                 return toDomain(goalRepository.save(entity));
         }
 
@@ -76,17 +69,11 @@ public class StatisticsService implements ManageGoalsUseCase, StatisticsUseCase 
                 int minutes = sessions.stream().mapToInt(StudySession::getDurationMinutes).sum();
                 StudyGoal goal = getGoal(userId);
                 double completion = Math.min(100.0, percentage(minutes, goal.getTargetWeeklyMinutes()));
-                double gpa = calculateOverallGpa(subjectRepository.findByUserId(userId));
                 return new StatisticsSummary(
                                 userId,
                                 minutes,
                                 goal.getTargetWeeklyMinutes(),
                                 completion,
-                                gpa,
-                                goal.getTargetAverageGrade(),
-                                goal.getTargetAverageGrade() == 0
-                                                ? 100.0
-                                                : Math.min(100.0, gpa * 100.0 / goal.getTargetAverageGrade()),
                                 sessions.size());
         }
 
@@ -186,7 +173,6 @@ public class StatisticsService implements ManageGoalsUseCase, StatisticsUseCase 
                                 goal.getTargetWeeklyMinutes(),
                                 completionRate,
                                 completedTasks.size(),
-                                calculateOverallGpa(subjects),
                                 mostStudied,
                                 leastStudied,
                                 feedback,
@@ -198,7 +184,6 @@ public class StatisticsService implements ManageGoalsUseCase, StatisticsUseCase 
                                 .id(entity.getId())
                                 .userId(entity.getUserId())
                                 .targetWeeklyMinutes(entity.getTargetWeeklyMinutes())
-                                .targetAverageGrade(entity.getTargetGpa().doubleValue())
                                 .build();
         }
 
@@ -218,16 +203,4 @@ public class StatisticsService implements ManageGoalsUseCase, StatisticsUseCase 
                 return target == 0 ? 0.0 : actual * 100.0 / target;
         }
 
-        private double calculateOverallGpa(List<Subject> subjects) {
-                double weightedTotal = 0.0;
-                int totalCredits = 0;
-                for (Subject subject : subjects) {
-                        double average = subject.calculateCurrentAverage();
-                        if (average > 0 && subject.getCredits() > 0) {
-                                weightedTotal += average * subject.getCredits();
-                                totalCredits += subject.getCredits();
-                        }
-                }
-                return totalCredits == 0 ? 0.0 : weightedTotal / totalCredits;
-        }
 }

@@ -30,26 +30,4 @@ public class Subject {
     public List<Evaluation> getEvaluations() {
         return Collections.unmodifiableList(evaluations);
     }
-
-    public double calculateCurrentAverage() {
-        if (evaluations.isEmpty()) {
-            return 0.0;
-        }
-
-        double accumulatedGrade = 0.0;
-        double totalPercentage = 0.0;
-
-        for (Evaluation evaluation : evaluations) {
-            if (evaluation.getGrade() != null) {
-                accumulatedGrade += (evaluation.getGrade() * (evaluation.getPercentage() / 100.0));
-                totalPercentage += evaluation.getPercentage();
-            }
-        }
-
-        if (totalPercentage == 0.0) {
-            return 0.0;
-        }
-
-        return (accumulatedGrade / (totalPercentage / 100.0));
-    }
 }

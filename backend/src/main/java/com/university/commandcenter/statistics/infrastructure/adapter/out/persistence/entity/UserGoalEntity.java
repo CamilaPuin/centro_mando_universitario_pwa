@@ -5,7 +5,6 @@ import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -26,9 +25,6 @@ public class UserGoalEntity {
 
     @Column(name = "target_weekly_minutes", nullable = false)
     private int targetWeeklyMinutes;
-
-    @Column(name = "target_gpa", nullable = false, columnDefinition = "DECIMAL(3,2)")
-    private BigDecimal targetGpa;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

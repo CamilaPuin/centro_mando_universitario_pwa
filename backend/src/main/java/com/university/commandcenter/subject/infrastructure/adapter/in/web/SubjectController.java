@@ -1,7 +1,6 @@
 package com.university.commandcenter.subject.infrastructure.adapter.in.web;
 
 import com.university.commandcenter.infrastructure.security.CurrentUserService;
-import com.university.commandcenter.subject.application.port.in.CalculateAverageUseCase;
 import com.university.commandcenter.subject.application.port.in.ManageEvaluationUseCase;
 import com.university.commandcenter.subject.application.port.in.ManageSubjectNoteUseCase;
 import com.university.commandcenter.subject.application.port.in.ManageSubjectUseCase;
@@ -9,8 +8,6 @@ import com.university.commandcenter.subject.domain.Evaluation;
 import com.university.commandcenter.subject.domain.Subject;
 import com.university.commandcenter.subject.infrastructure.adapter.out.persistence.entity.SubjectNoteEntity;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -29,7 +26,6 @@ public class SubjectController {
     private final ManageSubjectUseCase subjectUseCase;
     private final ManageEvaluationUseCase evaluationUseCase;
     private final ManageSubjectNoteUseCase noteUseCase;
-    private final CalculateAverageUseCase averageUseCase;
     private final CurrentUserService currentUserService;
 
     @PostMapping
@@ -58,12 +54,6 @@ public class SubjectController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteSubject(@PathVariable Long subjectId) {
         subjectUseCase.deleteSubject(currentUserService.getCurrentUserId(), subjectId);
-    }
-
-    @GetMapping("/{subjectId}/average")
-    public AverageResponse getAverage(@PathVariable Long subjectId) {
-        return new AverageResponse(averageUseCase.calculateAverage(
-                currentUserService.getCurrentUserId(), subjectId));
     }
 
     @GetMapping("/{subjectId}/evaluations")
@@ -134,20 +124,14 @@ public class SubjectController {
 
     public record EvaluationRequest(
             @NotBlank @Size(max = 100) String name,
-            @DecimalMin("0.0") @DecimalMax("5.0") Double grade,
-            @DecimalMin("0.01") @DecimalMax("100.0") double percentage,
             LocalDateTime evaluationDate) {
         private Evaluation toDomain() {
             return Evaluation.builder()
                     .name(name)
-                    .grade(grade)
-                    .percentage(percentage)
                     .evaluationDate(evaluationDate)
                     .build();
         }
     }
 
     public record NoteRequest(@Size(max = 150) String title, @NotBlank String content) {}
-
-    public record AverageResponse(double value) {}
 }

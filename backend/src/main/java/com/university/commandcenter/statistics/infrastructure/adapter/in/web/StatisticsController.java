@@ -5,8 +5,6 @@ import com.university.commandcenter.statistics.application.port.in.ManageGoalsUs
 import com.university.commandcenter.statistics.application.port.in.StatisticsUseCase;
 import com.university.commandcenter.statistics.domain.StudyGoal;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.DecimalMax;
-import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -44,11 +42,9 @@ public class StatisticsController {
     public StudyGoal saveGoal(@Valid @RequestBody GoalRequest request) {
         return manageGoalsUseCase.saveGoal(
                 currentUserService.getCurrentUserId(),
-                request.targetWeeklyMinutes(),
-                request.targetAverageGrade());
+                request.targetWeeklyMinutes());
     }
 
     public record GoalRequest(
-            @Positive int targetWeeklyMinutes,
-            @DecimalMin("0.0") @DecimalMax("5.0") double targetAverageGrade) {}
+            @Positive int targetWeeklyMinutes) {}
 }
