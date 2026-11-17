@@ -15,18 +15,6 @@ export interface AuthSession {
   username: string;
 }
 
-function dispatchAuthChanged(): void {
-  window.dispatchEvent(new Event('auth-changed'));
-  for (const eventName of [
-    'asignaturas-actualizadas',
-    'entregas-actualizadas',
-    'horario-actualizado',
-    'sesion-estudio-guardada'
-  ]) {
-    window.dispatchEvent(new Event(eventName));
-  }
-}
-
 export function getCurrentUsername(): string | undefined {
   return activeUsername;
 }
@@ -79,13 +67,13 @@ function saveAuthSession(token: string, username: string): void {
   }
   activeUsername = username;
   remoteSessionActive = true;
-  dispatchAuthChanged();
+  window.dispatchEvent(new Event('auth-changed'));
 }
 
 export function iniciarSesionLocal(username: string): void {
   activeUsername = username;
   remoteSessionActive = false;
-  dispatchAuthChanged();
+  window.dispatchEvent(new Event('auth-changed'));
 }
 
 function clearRemoteSession(): void {
@@ -107,7 +95,7 @@ export function clearAuthSession(): void {
   }
   activeUsername = undefined;
   remoteSessionActive = false;
-  dispatchAuthChanged();
+  window.dispatchEvent(new Event('auth-changed'));
 }
 
 export async function apiRequest<T>(
@@ -119,9 +107,8 @@ export async function apiRequest<T>(
   if (requestOptions.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
   }
-  const authSession = authenticated ? getAuthSession() : undefined;
   if (authenticated) {
-    const token = authSession?.token;
+    const token = getAuthSession()?.token;
     if (!token) throw new Error('Inicia sesión para sincronizar tus datos entre dispositivos.');
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -134,11 +121,6 @@ export async function apiRequest<T>(
       throw new Error('No hay conexión. Puedes continuar con la sesión local y sincronizar al reconectarte.');
     }
     throw new Error('No se pudo conectar con el servicio. Revisa tu conexión e inténtalo de nuevo.');
-  }
-  if (authenticated &&
-      (getCurrentUsername() !== authSession?.username ||
-       getAuthSession()?.token !== authSession?.token)) {
-    throw new Error('La sesión cambió durante la solicitud. Vuelve a intentarlo con la cuenta activa.');
   }
   if (!response.ok) {
     if (response.status === 401 && authenticated) {

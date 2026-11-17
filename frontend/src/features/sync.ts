@@ -16,12 +16,7 @@ import {
   type EntregaAcademica,
   type SesionEstudio
 } from '../utils/db';
-import {
-  apiRequest,
-  getCurrentUsername,
-  isAuthenticated,
-  type ApiRequestOptions
-} from '../services/api';
+import { apiRequest, isAuthenticated } from '../services/api';
 import {
   EVENTO_SOLICITAR_SINCRONIZACION,
   publicarEstadoSincronizacion
@@ -33,26 +28,9 @@ export function inicializarSincronizacion(
   let remoteRefresh: Promise<void> | undefined;
   let pendingSync: Promise<void> | undefined;
 
-  async function requestForUser<T>(
-    username: string,
-    path: string,
-    options?: ApiRequestOptions
-  ): Promise<T> {
-    if (getCurrentUsername() !== username) {
-      throw new Error('La sesión cambió durante la sincronización. Vuelve a intentarlo con la cuenta activa.');
-    }
-    const result = await apiRequest<T>(path, options);
-    if (getCurrentUsername() !== username) {
-      throw new Error('La sesión cambió durante la sincronización. Vuelve a intentarlo con la cuenta activa.');
-    }
-    return result;
-  }
-
   async function actualizarDatosRemotos(db: IDBDatabase): Promise<void> {
     if (!isAuthenticated() || !navigator.onLine) return;
-    const username = getCurrentUsername();
-    if (!username) return;
-    const subjectsFromApi = await requestForUser<RemoteSubject[]>(username, '/subjects');
+    const subjectsFromApi = await apiRequest<RemoteSubject[]>('/subjects');
     let cachedSubjects = await listarAsignaturas(db);
     for (const cached of cachedSubjects) {
       if (cached.backendId && !cached.syncPending) continue;
@@ -61,13 +39,13 @@ export function inicializarSincronizacion(
           subject.name.trim().toLocaleLowerCase() === cached.nombre.trim().toLocaleLowerCase()
         );
       if (!remote) {
-        remote = await requestForUser<RemoteSubject>(username, '/subjects', {
+        remote = await apiRequest<RemoteSubject>('/subjects', {
           method: 'POST',
           body: JSON.stringify({ name: cached.nombre, teacher: '', schedule: '', credits: 3 })
         });
         subjectsFromApi.push(remote);
       } else if (cached.backendId && cached.syncPending) {
-        await requestForUser(username, `/subjects/${remote.id}`, {
+        await apiRequest(`/subjects/${remote.id}`, {
           method: 'PUT',
           body: JSON.stringify({ name: cached.nombre, teacher: '', schedule: '', credits: 3 })
         });
@@ -84,7 +62,6 @@ export function inicializarSincronizacion(
         ...(cached?.id === undefined ? {} : { id: cached.id }),
         backendId: subject.id,
         nombre: subject.name,
-        ownerUsername: username,
         creadoEn: cached?.creadoEn ?? new Date().toISOString()
       }));
     }
@@ -99,18 +76,18 @@ export function inicializarSincronizacion(
         item.name.trim().toLocaleLowerCase() === note.asignatura.trim().toLocaleLowerCase()
       );
       if (!subject) continue;
-      const remoteNote = await requestForUser<RemoteNote>(username, `/subjects/${subject.id}/notes`, {
+      const remoteNote = await apiRequest<RemoteNote>(`/subjects/${subject.id}/notes`, {
         method: 'POST',
         body: JSON.stringify({ title: 'Apunte', content: note.contenido })
       });
       if (note.backendId) {
-        await requestForUser<void>(username, `/subjects/notes/${note.backendId}`, { method: 'DELETE' });
+        await apiRequest<void>(`/subjects/notes/${note.backendId}`, { method: 'DELETE' });
       }
       await guardarApunte(db, { ...note, backendId: remoteNote.id, syncPending: false });
     }
     const remoteNotes = await Promise.all(subjectsFromApi.map(async subject => ({
       subject,
-      notes: await requestForUser<RemoteNote[]>(username, `/subjects/${subject.id}/notes`)
+      notes: await apiRequest<RemoteNote[]>(`/subjects/${subject.id}/notes`)
     })));
     const localNotes: ApunteMateria[] = await listarApuntes(db);
     for (const { subject, notes } of remoteNotes) {
@@ -125,13 +102,12 @@ export function inicializarSincronizacion(
           ...(localSubject.id === undefined ? {} : { asignaturaId: localSubject.id }),
           asignatura: localSubject.nombre,
           contenido: note.content,
-          ownerUsername: username,
           ...(cached ? { creadoEn: cached.creadoEn } : {})
         });
       }
     }
 
-    const schedulesFromApi = await requestForUser<RemoteSchedule[]>(username, '/calendar/class-schedules');
+    const schedulesFromApi = await apiRequest<RemoteSchedule[]>('/calendar/class-schedules');
     let cachedSchedules = await listarClasesHorario(db);
     for (const cached of cachedSchedules) {
       if (cached.backendId && !cached.syncPending) continue;
@@ -154,13 +130,13 @@ export function inicializarSincronizacion(
           schedule.endTime.slice(0, 5) === cached.horaFin
         );
       if (!remote) {
-        remote = await requestForUser<RemoteSchedule>(username, '/calendar/class-schedules', {
+        remote = await apiRequest<RemoteSchedule>('/calendar/class-schedules', {
           method: 'POST',
           body: JSON.stringify(payload)
         });
         schedulesFromApi.push(remote);
       } else if (cached.backendId && cached.syncPending) {
-        remote = await requestForUser<RemoteSchedule>(username, `/calendar/class-schedules/${remote.id}`, {
+        remote = await apiRequest<RemoteSchedule>(`/calendar/class-schedules/${remote.id}`, {
           method: 'PUT',
           body: JSON.stringify(payload)
         });
@@ -170,9 +146,9 @@ export function inicializarSincronizacion(
     cachedSchedules = await listarClasesHorario(db);
     await sincronizarPendientes(db);
     const [tasksFromApi, remoteSessions, remoteGoal] = await Promise.all([
-      requestForUser<RemoteTask[]>(username, '/tasks'),
-      requestForUser<RemoteStudySession[]>(username, '/study/sessions'),
-      requestForUser<{ targetWeeklyMinutes: number }>(username, '/statistics/goals')
+      apiRequest<RemoteTask[]>('/tasks'),
+      apiRequest<RemoteStudySession[]>('/study/sessions'),
+      apiRequest<{ targetWeeklyMinutes: number }>('/statistics/goals')
     ]);
     const sessionsFromApi = [...remoteSessions];
     const localSessions = await listarSesionesEstudio(db);
@@ -187,7 +163,7 @@ export function inicializarSincronizacion(
         Math.abs(new Date(item.sessionDate).getTime() - sessionDate.getTime()) < 60_000
       );
       if (!remote) {
-        remote = await requestForUser<RemoteStudySession>(username, '/study/sessions', {
+        remote = await apiRequest<RemoteStudySession>('/study/sessions', {
           method: 'POST',
           body: JSON.stringify({
             subjectId: subject.backendId,
@@ -204,9 +180,7 @@ export function inicializarSincronizacion(
         const store = transaction.objectStore('sesionesEstudio');
         const request = store.get(session.id);
         request.onsuccess = () => {
-          if (request.result?.ownerUsername === username) {
-            store.put({ ...request.result, backendId: remoteSessionId });
-          }
+          if (request.result) store.put({ ...request.result, backendId: remoteSessionId });
         };
         await new Promise<void>((resolve, reject) => {
           transaction.oncomplete = () => resolve();
@@ -241,7 +215,7 @@ export function inicializarSincronizacion(
         item.dueDate.slice(0, 16) === delivery.fechaEntrega.slice(0, 16)
       );
       if (!remoteTask) {
-        remoteTask = await requestForUser<RemoteTask>(username, '/tasks', {
+        remoteTask = await apiRequest<RemoteTask>('/tasks', {
           method: 'POST',
           body: JSON.stringify(payload)
         });
@@ -250,7 +224,7 @@ export function inicializarSincronizacion(
       const state = delivery.estado === 'entregada'
         ? 'DONE'
         : delivery.estado === 'en-progreso' ? 'IN_PROGRESS' : 'PENDING';
-      await requestForUser<void>(username, `/tasks/${remoteTask.id}/state`, {
+      await apiRequest<void>(`/tasks/${remoteTask.id}/state`, {
         method: 'PATCH',
         body: JSON.stringify({ state })
       });
@@ -267,11 +241,11 @@ export function inicializarSincronizacion(
           evaluationDate
         };
         const remoteEvaluation = evaluationBackendId
-          ? await requestForUser<{ id: number }>(username, `/subjects/${subject.backendId}/evaluations/${evaluationBackendId}`, {
+          ? await apiRequest<{ id: number }>(`/subjects/${subject.backendId}/evaluations/${evaluationBackendId}`, {
               method: 'PUT',
               body: JSON.stringify(evaluationPayload)
             })
-          : await requestForUser<{ id: number }>(username, `/subjects/${subject.backendId}/evaluations`, {
+          : await apiRequest<{ id: number }>(`/subjects/${subject.backendId}/evaluations`, {
               method: 'POST',
               body: JSON.stringify(evaluationPayload)
             });
@@ -280,7 +254,6 @@ export function inicializarSincronizacion(
       const transaction = db.transaction('entregas', 'readwrite');
       transaction.objectStore('entregas').put({
         ...delivery,
-        ownerUsername: username,
         backendId: remoteTask.id,
         ...(evaluationBackendId === undefined ? {} : { evaluationBackendId }),
         asignaturaId: subject.id
@@ -293,7 +266,7 @@ export function inicializarSincronizacion(
     }
     const localGoal = await obtenerMetas(db);
     const goalFromApi = localGoal?.syncPending
-      ? await requestForUser<{ targetWeeklyMinutes: number }>(username, '/statistics/goals', {
+      ? await apiRequest<{ targetWeeklyMinutes: number }>('/statistics/goals', {
           method: 'PUT',
           body: JSON.stringify({
             targetWeeklyMinutes: localGoal.minutosSemanales
@@ -303,8 +276,7 @@ export function inicializarSincronizacion(
     if (localGoal?.syncPending) {
       await guardarMetas(db, {
         minutosSemanales: goalFromApi.targetWeeklyMinutes,
-        syncPending: false,
-        ...(localGoal.ownerUsername ? { ownerUsername: localGoal.ownerUsername } : {})
+        syncPending: false
       });
     }
     for (const schedule of schedulesFromApi) {
@@ -321,8 +293,7 @@ export function inicializarSincronizacion(
         diaSemana: day,
         horaInicio: schedule.startTime.slice(0, 5),
         horaFin: schedule.endTime.slice(0, 5),
-        aula: schedule.location ?? '',
-        ownerUsername: username
+        aula: schedule.location ?? ''
       });
     }
 
@@ -357,8 +328,7 @@ export function inicializarSincronizacion(
         ...((evaluation?.id ?? cached?.evaluationBackendId) === undefined
           ? {}
           : { evaluationBackendId: evaluation?.id ?? cached?.evaluationBackendId }),
-        actualizadoEn: cached?.actualizadoEn ?? new Date().toISOString(),
-        ownerUsername: username
+        actualizadoEn: cached?.actualizadoEn ?? new Date().toISOString()
       };
       if (record.id === undefined) taskStore.add(record);
       else taskStore.put(record);
@@ -383,8 +353,7 @@ export function inicializarSincronizacion(
         tipo: session.cycleType === 'FREE_SESSION' ? 'cronometro' : 'pomodoro',
         inicio: session.sessionDate,
         fin: new Date(new Date(session.sessionDate).getTime() + session.durationMinutes * 60_000).toISOString(),
-        duracionSegundos: session.durationMinutes * 60,
-        ownerUsername: username
+        duracionSegundos: session.durationMinutes * 60
       };
       if (record.id === undefined) sessionsStore.add(record);
       else sessionsStore.put(record);
@@ -398,8 +367,7 @@ export function inicializarSincronizacion(
 
     const goalsTransaction = db.transaction('metas', 'readwrite');
     goalsTransaction.objectStore('metas').put({
-      id: `${username}:actual`,
-      ownerUsername: username,
+      id: 'actual',
       minutosSemanales: goalFromApi.targetWeeklyMinutes,
       actualizadoEn: new Date().toISOString()
     });
@@ -429,8 +397,6 @@ export function inicializarSincronizacion(
       publicarEstadoSincronizacion('Inicia sesión para sincronizar tus cambios entre dispositivos.');
       return;
     }
-    const username = getCurrentUsername();
-    if (!username) return;
     const asignaturas = await listarAsignaturas(db);
     const cambios = await listarCambiosPendientes(db);
     for (const cambio of cambios) {
@@ -455,22 +421,18 @@ export function inicializarSincronizacion(
         taskType
       };
       const remoteTask = entrega.backendId
-        ? await requestForUser<{ id: number }>(username, `/tasks/${entrega.backendId}`, {
+        ? await apiRequest<{ id: number }>(`/tasks/${entrega.backendId}`, {
             method: 'PUT',
             body: JSON.stringify(task)
           })
-        : await requestForUser<{ id: number }>(username, '/tasks', {
+        : await apiRequest<{ id: number }>('/tasks', {
             method: 'POST',
             body: JSON.stringify(task)
           });
       cambio.payload = { ...entrega, backendId: remoteTask.id };
       const taskMarkerTx = db.transaction(['entregas', 'outbox'], 'readwrite');
-      taskMarkerTx.objectStore('entregas').put({
-        ...entrega,
-        ownerUsername: username,
-        backendId: remoteTask.id
-      });
-      taskMarkerTx.objectStore('outbox').put({ ...cambio, ownerUsername: username });
+      taskMarkerTx.objectStore('entregas').put({ ...entrega, backendId: remoteTask.id });
+      taskMarkerTx.objectStore('outbox').put(cambio);
       await new Promise<void>((resolve, reject) => {
         taskMarkerTx.oncomplete = () => resolve();
         taskMarkerTx.onerror = () => reject(taskMarkerTx.error);
@@ -479,7 +441,7 @@ export function inicializarSincronizacion(
       const state = entrega.estado === 'entregada'
         ? 'DONE'
         : entrega.estado === 'en-progreso' ? 'IN_PROGRESS' : 'PENDING';
-      await requestForUser<void>(username, `/tasks/${remoteTask.id}/state`, {
+      await apiRequest<void>(`/tasks/${remoteTask.id}/state`, {
         method: 'PATCH',
         body: JSON.stringify({ state })
       });
@@ -493,18 +455,18 @@ export function inicializarSincronizacion(
           evaluationDate
         };
         const evaluation = evaluationBackendId
-          ? await requestForUser<{ id: number }>(username, `/subjects/${asignatura.backendId}/evaluations/${evaluationBackendId}`, {
+          ? await apiRequest<{ id: number }>(`/subjects/${asignatura.backendId}/evaluations/${evaluationBackendId}`, {
               method: 'PUT',
               body: JSON.stringify(evaluationPayload)
             })
-          : await requestForUser<{ id: number }>(username, `/subjects/${asignatura.backendId}/evaluations`, {
+          : await apiRequest<{ id: number }>(`/subjects/${asignatura.backendId}/evaluations`, {
               method: 'POST',
               body: JSON.stringify(evaluationPayload)
             });
         evaluationBackendId = evaluation.id;
         cambio.payload = { ...cambio.payload, evaluationBackendId };
         const evaluationMarkerTx = db.transaction('outbox', 'readwrite');
-        evaluationMarkerTx.objectStore('outbox').put({ ...cambio, ownerUsername: username });
+        evaluationMarkerTx.objectStore('outbox').put(cambio);
         await new Promise<void>((resolve, reject) => {
           evaluationMarkerTx.oncomplete = () => resolve();
           evaluationMarkerTx.onerror = () => reject(evaluationMarkerTx.error);
@@ -514,7 +476,6 @@ export function inicializarSincronizacion(
       const saveTx = db.transaction('entregas', 'readwrite');
       saveTx.objectStore('entregas').put({
         ...entrega,
-        ownerUsername: username,
         backendId: remoteTask.id,
         ...(evaluationBackendId === undefined ? {} : { evaluationBackendId }),
         asignaturaId: asignatura.id
