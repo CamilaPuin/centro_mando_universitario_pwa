@@ -84,28 +84,41 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
     if (!db) throw new Error('IndexedDB no está disponible.');
     const username = getCurrentUsername();
     if (!username) throw new Error('Inicia sesión para guardar tu foto de perfil.');
-    if (!currentProfile) throw new Error('No se pudo cargar el perfil de la cuenta.');
+    if (!currentProfile || currentProfile.nombreUsuario !== username) {
+      throw new Error('No se pudo cargar el perfil de la cuenta.');
+    }
 
-    currentProfile = await guardarPerfil(db, {
-      nombre: currentProfile.nombre,
+    const profileName = currentProfile.nombre;
+    const savedProfile = await guardarPerfil(db, {
+      nombre: profileName,
       nombreUsuario: username,
       foto: photo,
       syncPending: true
     });
+    if (getCurrentUsername() !== username) return;
+    currentProfile = savedProfile;
     showPhoto(photo);
 
-    if (navigator.onLine && isAuthenticated()) {
+    if (navigator.onLine && isAuthenticated() && getCurrentUsername() === username) {
+      const encodedPhoto = await blobToBase64(photo);
+      if (!isAuthenticated() || getCurrentUsername() !== username) {
+        profileStatus.textContent = 'Foto guardada localmente. Se sincronizará al recuperar la conexión.';
+        return;
+      }
       await apiRequest('/users/me/photo', {
         method: 'PUT',
-        body: JSON.stringify({ photo: await blobToBase64(photo) })
+        body: JSON.stringify({ photo: encodedPhoto })
       });
-      currentProfile = await guardarPerfil(db, {
-        nombre: currentProfile.nombre,
+      const synchronizedProfile = await guardarPerfil(db, {
+        nombre: profileName,
         nombreUsuario: username,
         foto: photo,
         syncPending: false
       });
-      profileStatus.textContent = 'Foto de perfil sincronizada con tu cuenta.';
+      if (getCurrentUsername() === username) {
+        currentProfile = synchronizedProfile;
+        profileStatus.textContent = 'Foto de perfil sincronizada con tu cuenta.';
+      }
     } else {
       profileStatus.textContent = 'Foto guardada localmente. Se sincronizará al recuperar la conexión.';
     }
@@ -126,12 +139,12 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
       showPhoto(undefined);
       return;
     }
-    currentProfile = await obtenerPerfil(db);
+    currentProfile = await obtenerPerfil(db, username);
     if (!currentProfile || currentProfile.nombreUsuario !== username) {
       profileNameDisplay.textContent = username;
       profileUsernameDisplay.textContent = username;
       currentProfile = {
-        id: 'estudiante',
+        id: username,
         nombre: username,
         nombreUsuario: username,
         actualizadoEn: new Date().toISOString()
@@ -146,19 +159,24 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
 
   async function synchronizePendingPhoto(): Promise<void> {
     const db = await databaseReady;
-    if (!db || !navigator.onLine || !isAuthenticated()) return;
-    const profile = await obtenerPerfil(db);
+    const username = getCurrentUsername();
+    if (!db || !username || !navigator.onLine || !isAuthenticated()) return;
+    const profile = await obtenerPerfil(db, username);
     if (!profile?.syncPending || !profile.foto) return;
+    const encodedPhoto = await blobToBase64(profile.foto);
+    if (!isAuthenticated() || getCurrentUsername() !== username) return;
     await apiRequest('/users/me/photo', {
       method: 'PUT',
-      body: JSON.stringify({ photo: await blobToBase64(profile.foto) })
+      body: JSON.stringify({ photo: encodedPhoto })
     });
-    currentProfile = await guardarPerfil(db, {
+    const synchronizedProfile = await guardarPerfil(db, {
       nombre: profile.nombre,
       nombreUsuario: profile.nombreUsuario,
       foto: profile.foto,
       syncPending: false
     });
+    if (getCurrentUsername() !== username) return;
+    currentProfile = synchronizedProfile;
     profileStatus.textContent = 'Foto de perfil sincronizada con tu cuenta.';
   }
 

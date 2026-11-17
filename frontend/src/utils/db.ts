@@ -20,7 +20,7 @@ export interface ApunteMateria {
 }
 
 export interface PerfilEstudiante {
-  id: 'estudiante';
+  id: string;
   nombre: string;
   nombreUsuario: string;
   foto?: Blob;
@@ -137,7 +137,7 @@ export function abrirBaseDeDatos(): Promise<IDBDatabase> {
       return;
     }
 
-    const peticion = window.indexedDB.open('centro-mando-db', 7);
+    const peticion = window.indexedDB.open('centro-mando-db', 8);
 
     peticion.onupgradeneeded = event => {
       const db = peticion.result;
@@ -238,6 +238,23 @@ export function abrirBaseDeDatos(): Promise<IDBDatabase> {
           };
         }
       }
+
+      if (versionAnterior < 8 && db.objectStoreNames.contains('perfil')) {
+        const transaction = peticion.transaction;
+        if (!transaction) throw new Error('No se pudo migrar el perfil local.');
+        const store = transaction.objectStore('perfil');
+        const request = store.openCursor();
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) return;
+          const profile = cursor.value as PerfilEstudiante;
+          if (profile.id === 'estudiante' && profile.nombreUsuario.trim()) {
+            cursor.delete();
+            store.put({ ...profile, id: profile.nombreUsuario });
+          }
+          cursor.continue();
+        };
+      }
     };
 
     peticion.onsuccess = () => {
@@ -326,9 +343,9 @@ export function eliminarApunte(db: IDBDatabase, id: number): Promise<void> {
   });
 }
 
-export function obtenerPerfil(db: IDBDatabase): Promise<PerfilEstudiante | undefined> {
+export function obtenerPerfil(db: IDBDatabase, username: string): Promise<PerfilEstudiante | undefined> {
   return new Promise((resolve, reject) => {
-    const request = db.transaction('perfil', 'readonly').objectStore('perfil').get('estudiante');
+    const request = db.transaction('perfil', 'readonly').objectStore('perfil').get(username);
     request.onsuccess = () => resolve(request.result as PerfilEstudiante | undefined);
     request.onerror = () => reject(request.error);
   });
@@ -342,7 +359,7 @@ export function guardarPerfil(
     const tx = db.transaction('perfil', 'readwrite');
     const guardado: PerfilEstudiante = {
       ...perfil,
-      id: 'estudiante',
+      id: perfil.nombreUsuario,
       actualizadoEn: new Date().toISOString()
     };
     const request = tx.objectStore('perfil').put(guardado);

@@ -117,7 +117,7 @@ export function inicializarAutenticacion(
 
   async function cargarPerfilRemoto(db: IDBDatabase): Promise<void> {
     const remote = await apiRequest<PerfilRemoto>('/users/me');
-    const local = await obtenerPerfil(db);
+    const local = await obtenerPerfil(db, remote.username);
     const localForAccount = local?.nombreUsuario === remote.username ? local : undefined;
     let photo = localForAccount?.syncPending ? localForAccount.foto : undefined;
     if (!photo && remote.photo) {
