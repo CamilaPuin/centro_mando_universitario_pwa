@@ -5,6 +5,8 @@ import com.university.commandcenter.user.application.port.in.RegisterUserUseCase
 import com.university.commandcenter.user.application.port.out.UserRepositoryPort;
 import com.university.commandcenter.user.domain.User;
 import com.university.commandcenter.infrastructure.security.CurrentUserService;
+import com.university.commandcenter.infrastructure.security.JwtService;
+import com.university.commandcenter.shared.infrastructure.exception.ResourceConflictException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -15,6 +17,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Base64;
 
@@ -28,6 +32,8 @@ public class UserController {
     private final LoginUseCase loginUseCase;
     private final CurrentUserService currentUserService;
     private final UserRepositoryPort userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
 
     @PostMapping("/register")
     @Operation(summary = "Register a new user", description = "Creates a new user in the system")
@@ -63,6 +69,40 @@ public class UserController {
                 user.getUsername(), user.getFirstName(), user.getLastName(), photo));
     }
 
+    @PutMapping("/me")
+    @Operation(summary = "Update current user profile")
+    public ResponseEntity<ProfileUpdateResponse> updateCurrentProfile(
+            @Valid @RequestBody ProfileUpdateRequest request) {
+        Long userId = currentUserService.getCurrentUserId();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile was not found"));
+        String username = request.username().trim();
+        userRepository.findByUsername(username)
+                .filter(existing -> !existing.getId().equals(userId))
+                .ifPresent(existing -> {
+                    throw new ResourceConflictException("Username is already registered");
+                });
+        String firstName = request.firstName().trim();
+        String lastName = request.lastName().trim();
+        userRepository.updateProfile(userId, username, firstName, lastName);
+        return ResponseEntity.ok(new ProfileUpdateResponse(
+                username, firstName, lastName, jwtService.generateToken(username)));
+    }
+
+    @PutMapping("/me/password")
+    @Operation(summary = "Change current user password")
+    public ResponseEntity<LoginResponse> updateCurrentPassword(
+            @Valid @RequestBody PasswordUpdateRequest request) {
+        Long userId = currentUserService.getCurrentUserId();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User profile was not found"));
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new BadCredentialsException("Current password is incorrect");
+        }
+        userRepository.updatePassword(userId, passwordEncoder.encode(request.newPassword()));
+        return ResponseEntity.ok(new LoginResponse(jwtService.generateToken(user.getUsername())));
+    }
+
     @PutMapping("/me/photo")
     @Operation(summary = "Update current user profile photo")
     public ResponseEntity<Void> updateProfilePhoto(@Valid @RequestBody PhotoRequest request) {
@@ -90,5 +130,13 @@ public class UserController {
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {}
     public record LoginResponse(String token) {}
     public record UserProfileResponse(String username, String firstName, String lastName, String photo) {}
+    public record ProfileUpdateRequest(
+            @NotBlank @Size(max = 50) String username,
+            @NotBlank @Size(max = 100) String firstName,
+            @NotBlank @Size(max = 100) String lastName) {}
+    public record ProfileUpdateResponse(String username, String firstName, String lastName, String token) {}
+    public record PasswordUpdateRequest(
+            @NotBlank String currentPassword,
+            @NotBlank @Size(min = 8, max = 100) String newPassword) {}
     public record PhotoRequest(@Size(max = 1_398_104) String photo) {}
 }

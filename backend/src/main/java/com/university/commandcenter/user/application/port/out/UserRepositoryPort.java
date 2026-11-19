@@ -8,4 +8,6 @@ public interface UserRepositoryPort {
     Optional<User> findByUsername(String username);
     Optional<User> findById(Long id);
     void updateProfilePhoto(Long userId, byte[] photo);
+    void updateProfile(Long userId, String username, String firstName, String lastName);
+    void updatePassword(Long userId, String encodedPassword);
 }

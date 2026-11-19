@@ -45,6 +45,24 @@ public class UserJpaAdapter implements UserRepositoryPort {
         jpaRepository.save(entity);
     }
 
+    @Override
+    public void updateProfile(Long userId, String username, String firstName, String lastName) {
+        UserEntity entity = jpaRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User was not found"));
+        entity.setUsername(username);
+        entity.setFirstName(firstName);
+        entity.setLastName(lastName);
+        jpaRepository.save(entity);
+    }
+
+    @Override
+    public void updatePassword(Long userId, String encodedPassword) {
+        UserEntity entity = jpaRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User was not found"));
+        entity.setPassword(encodedPassword);
+        jpaRepository.save(entity);
+    }
+
     private User toDomain(UserEntity entity) {
         return User.builder()
                 .id(entity.getId())
