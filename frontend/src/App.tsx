@@ -117,7 +117,7 @@ export function App() {
           <ModuloCalendario activo={tabActiva === 'tab-calendario'} databaseReady={databaseReady} />
           <ModuloProgreso activo={tabActiva === 'tab-progreso'} databaseReady={databaseReady} />
           <ModuloNotas activo={tabActiva === 'tab-notas'} databaseReady={databaseReady} />
-          <ModuloPomodoro activo={tabActiva === 'tab-pomodoro'} />
+          <ModuloPomodoro activo={tabActiva === 'tab-pomodoro'} databaseReady={databaseReady} />
           <ModuloDispositivo activo={tabActiva === 'tab-dispositivo'} />
         </main>
         <footer className="app-footer">

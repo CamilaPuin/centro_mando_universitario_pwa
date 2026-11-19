@@ -1,10 +1,34 @@
-import type { ReactElement } from 'react';
+import { useEffect, useState, type ReactElement } from 'react';
+import { obtenerDatosAsignaturas, type DatosAsignaturas } from '../../features/asignaturas';
 
 interface ModuloPomodoroProps {
   activo: boolean;
+  databaseReady: Promise<IDBDatabase | undefined>;
 }
 
-export function ModuloPomodoro({ activo }: ModuloPomodoroProps): ReactElement {
+export function ModuloPomodoro({ activo, databaseReady }: ModuloPomodoroProps): ReactElement {
+  const [datos, setDatos] = useState<DatosAsignaturas>();
+  const [asignatura, setAsignatura] = useState('');
+
+  useEffect(() => {
+    let montado = true;
+    const actualizar = async (): Promise<void> => {
+      try {
+        const resultado = await obtenerDatosAsignaturas(databaseReady);
+        if (!montado) return;
+        setDatos(resultado);
+      } catch (causa) {
+        console.error('No se pudieron cargar las asignaturas para el pomodoro:', causa);
+      }
+    };
+    void actualizar();
+    window.addEventListener('asignaturas-actualizadas', actualizar);
+    return () => {
+      montado = false;
+      window.removeEventListener('asignaturas-actualizadas', actualizar);
+    };
+  }, [databaseReady]);
+
   return (
     <section id="tab-pomodoro" className={activo ? 'tab-view active' : 'tab-view'}>
       <div className="pomodoro-wrapper">
@@ -14,8 +38,18 @@ export function ModuloPomodoro({ activo }: ModuloPomodoroProps): ReactElement {
         </p>
         <div className="pomo-materia-row">
           <label htmlFor="pomo-materia-select">Asignatura:</label>
-          <select id="pomo-materia-select" className="form-control inline">
+          <select
+            id="pomo-materia-select"
+            className="form-control inline"
+            value={asignatura}
+            onChange={event => setAsignatura(event.currentTarget.value)}
+          >
             <option value="">Registra una asignatura para empezar</option>
+            {datos?.asignaturas.map(materia => (
+              <option key={materia.id ?? materia.nombre} value={materia.nombre}>
+                {materia.nombre}
+              </option>
+            ))}
           </select>
         </div>
         <div className="pomo-circle">
