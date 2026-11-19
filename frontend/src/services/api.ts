@@ -15,6 +15,13 @@ export interface AuthSession {
   username: string;
 }
 
+export class ApiConnectionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ApiConnectionError';
+  }
+}
+
 function dispatchAuthChanged(): void {
   window.dispatchEvent(new Event('auth-changed'));
   for (const eventName of [
@@ -82,6 +89,11 @@ function saveAuthSession(token: string, username: string): void {
   dispatchAuthChanged();
 }
 
+export function actualizarSesionAutenticada(token: string, username: string): void {
+  if (!token || !username) throw new Error('El servicio no devolvió una sesión válida.');
+  saveAuthSession(token, username);
+}
+
 export function iniciarSesionLocal(username: string): void {
   activeUsername = username;
   remoteSessionActive = false;
@@ -130,10 +142,9 @@ export async function apiRequest<T>(
   try {
     response = await fetch(`${API_BASE_URL}${path}`, { ...requestOptions, headers });
   } catch {
-    if (!navigator.onLine) {
-      throw new Error('No hay conexión. Puedes continuar con la sesión local y sincronizar al reconectarte.');
-    }
-    throw new Error('No se pudo conectar con el servicio. Revisa tu conexión e inténtalo de nuevo.');
+    throw new ApiConnectionError(!navigator.onLine
+      ? 'No hay conexión. Puedes continuar con la sesión local y sincronizar al reconectarte.'
+      : 'No se pudo conectar con el servicio. Revisa tu conexión e inténtalo de nuevo.');
   }
   if (authenticated &&
       (getCurrentUsername() !== authSession?.username ||

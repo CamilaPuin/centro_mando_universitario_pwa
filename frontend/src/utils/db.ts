@@ -27,6 +27,9 @@ export interface PerfilEstudiante {
   id: string;
   nombre: string;
   nombreUsuario: string;
+  firstName?: string;
+  lastName?: string;
+  usernamePendiente?: string;
   foto?: Blob;
   actualizadoEn: string;
   syncPending?: boolean;
@@ -410,6 +413,99 @@ export function guardarCredencialOffline(
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error ?? new Error('No se pudo guardar la credencial local.'));
+  });
+}
+
+export function renombrarUsuarioLocal(
+  db: IDBDatabase,
+  usernameAnterior: string,
+  usernameNuevo: string,
+  firstName: string,
+  lastName: string
+): Promise<void> {
+  if (usernameAnterior === usernameNuevo) return Promise.resolve();
+  const storeNames = [
+    'asignaturas',
+    'entregas',
+    'sesionesEstudio',
+    'notasPrivadas',
+    'registros',
+    'evidencias',
+    'outbox',
+    'horarioClases',
+    'apuntesMateria',
+    'metas',
+    'perfil',
+    'authCredentials'
+  ].filter(name => db.objectStoreNames.contains(name));
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeNames, 'readwrite');
+    const credentials = tx.objectStore('authCredentials');
+    const destinationCredential = credentials.get(usernameNuevo);
+    destinationCredential.onsuccess = () => {
+      if (destinationCredential.result) {
+        tx.abort();
+        reject(new Error('Ya existe otra cuenta local con ese nombre de usuario.'));
+        return;
+      }
+
+      for (const storeName of storeNames) {
+        const store = tx.objectStore(storeName);
+        const cursorRequest = store.openCursor();
+        cursorRequest.onsuccess = () => {
+          const cursor = cursorRequest.result;
+          if (!cursor) return;
+          const record = cursor.value as Record<string, unknown>;
+
+          if (storeName === 'authCredentials' && record.username === usernameAnterior) {
+            credentials.delete(usernameAnterior);
+            credentials.put({
+              ...record,
+              username: usernameNuevo,
+              firstName,
+              lastName
+            });
+          } else if (storeName === 'perfil' && record.id === usernameAnterior) {
+            store.delete(usernameAnterior);
+            store.put({
+              ...record,
+              id: usernameNuevo,
+              nombreUsuario: usernameNuevo,
+              nombre: `${firstName} ${lastName}`.trim(),
+              firstName,
+              lastName,
+              usernamePendiente: undefined
+            });
+          } else if (storeName === 'metas' && record.id === `${usernameAnterior}:actual`) {
+            store.delete(`${usernameAnterior}:actual`);
+            store.put({ ...record, id: `${usernameNuevo}:actual`, ownerUsername: usernameNuevo });
+          } else {
+            let changed = false;
+            if (record.ownerUsername === usernameAnterior) {
+              record.ownerUsername = usernameNuevo;
+              changed = true;
+            }
+            if (storeName === 'outbox' &&
+                typeof record.payload === 'object' &&
+                record.payload !== null) {
+              const payload = record.payload as Record<string, unknown>;
+              if (payload.ownerUsername === usernameAnterior) {
+                payload.ownerUsername = usernameNuevo;
+                changed = true;
+              }
+            }
+            if (changed) cursor.update(record);
+          }
+          cursor.continue();
+        };
+        cursorRequest.onerror = () => reject(cursorRequest.error);
+      }
+    };
+    destinationCredential.onerror = () => reject(destinationCredential.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error ?? new Error('No se pudieron actualizar los datos locales de la cuenta.'));
   });
 }
 

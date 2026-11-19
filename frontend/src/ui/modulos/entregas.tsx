@@ -9,6 +9,7 @@ import {
   type FormularioEntrega
 } from '../../features/entregas';
 import type { EntregaAcademica } from '../../utils/db';
+import { isAuthenticated } from '../../services/api';
 
 interface ModuloEntregasProps {
   activo: boolean;
@@ -143,6 +144,19 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
     }
   };
 
+  const sincronizarAhora = (): void => {
+    if (!isAuthenticated()) {
+      setEstado('Inicia sesión con la misma cuenta en todos tus dispositivos para compartir las entregas.');
+      return;
+    }
+    if (!navigator.onLine) {
+      setEstado('Sin conexión. La entrega permanece guardada en este dispositivo y se sincronizará al reconectarte.');
+      return;
+    }
+    setEstado('Sincronizando tus entregas…');
+    window.dispatchEvent(new Event(EVENTO_SOLICITAR_SINCRONIZACION));
+  };
+
   const grupos: Record<EstadoEntrega, EntregaAcademica[]> = {
     pendiente: [],
     'en-progreso': [],
@@ -185,8 +199,11 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
       <div className="dashboard-panel delivery-editor-panel">
         <h2 className="panel-title">Entrega o evaluación</h2>
         <p className="device-help">
-          Los cambios se guardan automáticamente. Inicia sesión para verlos también en tus otros dispositivos.
+          Los cambios se guardan en este dispositivo. Para verlos en otros, inicia sesión con la misma cuenta y sincroniza cuando tengas conexión.
         </p>
+        <button className="btn btn-load" type="button" onClick={sincronizarAhora}>
+          Sincronizar ahora
+        </button>
         <form id="delivery-form" className="delivery-form" onSubmit={guardar}>
           <input id="delivery-id" type="hidden" value={idEditando ?? ''} readOnly />
           <div className="form-group">

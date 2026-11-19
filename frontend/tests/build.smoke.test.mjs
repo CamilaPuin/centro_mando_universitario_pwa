@@ -42,6 +42,11 @@ test('production build contains the React app, PWA manifest, and service worker'
   assert.match(applicationBundle, /Inicia sesión o crea una cuenta/);
   assert.match(applicationBundle, /Cambiar a modo oscuro/);
   assert.match(applicationBundle, /Tomar foto/);
+  assert.match(applicationBundle, /Editar perfil/);
+  assert.match(applicationBundle, /Confirmar cambios/);
+  assert.match(applicationBundle, /Apellido\(s\)/);
+  assert.match(applicationBundle, /Cambiar contraseña/);
+  assert.match(applicationBundle, /Sincronizar ahora/);
   assert.match(applicationBundle, /Recordatorios de estudio/);
   assert.doesNotMatch(applicationBundle, /delivery-grade-input|delivery-grade-max-input|goal-average|targetAverageGrade|overallGpa/);
   assert.doesNotMatch(applicationBundle, /Calificación|Nota máxima|Promedio deseado|Promedio actual|Promedio general|Evaluaciones calificadas|Meta de promedio|GPA_MASTER/);

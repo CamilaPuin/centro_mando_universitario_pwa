@@ -7,7 +7,8 @@ import {
   isOfflineSession,
   isUserSessionActive,
   registrarCuenta,
-  apiRequest
+  apiRequest,
+  ApiConnectionError
 } from '../services/api';
 import {
   guardarCredencialOffline,
@@ -115,6 +116,30 @@ export function inicializarAutenticacion(
     return credential;
   }
 
+  async function guardarRegistroPendiente(
+    db: IDBDatabase,
+    usernameValue: string,
+    passwordValue: string,
+    firstNameValue: string,
+    lastNameValue: string
+  ): Promise<void> {
+    await guardarCredencial(
+      db,
+      usernameValue,
+      passwordValue,
+      firstNameValue,
+      lastNameValue,
+      true
+    );
+    iniciarSesionLocal(usernameValue);
+    await guardarPerfil(db, {
+      nombre: `${firstNameValue} ${lastNameValue}`.trim(),
+      nombreUsuario: usernameValue
+    });
+    window.dispatchEvent(new Event('profile-updated'));
+    authStatus.textContent = 'Cuenta guardada en este dispositivo. Se creará y sincronizará cuando vuelva internet.';
+  }
+
   async function cargarPerfilRemoto(db: IDBDatabase): Promise<void> {
     const remote = await apiRequest<PerfilRemoto>('/users/me');
     const local = await obtenerPerfil(db, remote.username);
@@ -124,9 +149,20 @@ export function inicializarAutenticacion(
       photo = blobFromBase64(remote.photo);
     }
     photo ??= localForAccount?.foto;
+    const firstName = localForAccount?.syncPending
+      ? localForAccount.firstName ?? remote.firstName
+      : remote.firstName;
+    const lastName = localForAccount?.syncPending
+      ? localForAccount.lastName ?? remote.lastName
+      : remote.lastName;
     await guardarPerfil(db, {
-      nombre: `${remote.firstName} ${remote.lastName}`.trim(),
+      nombre: `${firstName} ${lastName}`.trim(),
       nombreUsuario: remote.username,
+      firstName,
+      lastName,
+      ...(localForAccount?.usernamePendiente
+        ? { usernamePendiente: localForAccount.usernamePendiente }
+        : {}),
       ...(photo ? { foto: photo } : {}),
       ...(localForAccount?.syncPending ? { syncPending: true } : {})
     });
@@ -217,26 +253,29 @@ export function inicializarAutenticacion(
     authStatus.textContent = registerMode ? 'Creando cuenta…' : 'Iniciando sesión…';
 
     void (async () => {
+      let registrationSavedLocally = false;
       try {
         const db = await databaseReady;
         if (!db) throw new Error('El almacenamiento local no está disponible.');
         const first = firstName.value.trim();
         const last = lastName.value.trim();
 
-        if (registerMode && !navigator.onLine) {
-          await guardarCredencial(db, user, pass, first, last, true);
-          iniciarSesionLocal(user);
-          await guardarPerfil(db, {
-            nombre: `${first} ${last}`.trim(),
-            nombreUsuario: user
-          });
-          window.dispatchEvent(new Event('profile-updated'));
-          authStatus.textContent = 'Cuenta guardada en este dispositivo. Se creará y sincronizará cuando vuelva internet.';
-        } else if (registerMode) {
-          await registrarCuenta({ username: user, password: pass, firstName: first, lastName: last });
-          await guardarCredencial(db, user, pass, first, last, false);
-          await cargarPerfilRemoto(db);
-          authStatus.textContent = 'Cuenta creada y sincronizada.';
+        if (registerMode) {
+          if (!navigator.onLine) {
+            await guardarRegistroPendiente(db, user, pass, first, last);
+            registrationSavedLocally = true;
+          } else {
+            try {
+              await registrarCuenta({ username: user, password: pass, firstName: first, lastName: last });
+              await guardarCredencial(db, user, pass, first, last, false);
+              await cargarPerfilRemoto(db);
+              authStatus.textContent = 'Cuenta creada y sincronizada.';
+            } catch (error) {
+              if (!(error instanceof ApiConnectionError)) throw error;
+              await guardarRegistroPendiente(db, user, pass, first, last);
+              registrationSavedLocally = true;
+            }
+          }
         } else {
           if (navigator.onLine) {
             const existing = await obtenerCredencialOffline(db, user);
@@ -278,7 +317,7 @@ export function inicializarAutenticacion(
         updateMode();
         password.value = '';
         updateButton();
-        if (navigator.onLine) void sincronizarCredenciales();
+        if (navigator.onLine && !registrationSavedLocally) void sincronizarCredenciales();
       } catch (error) {
         authStatus.textContent = describirErrorConexionBaseDatos(error) ??
           (error instanceof Error ? error.message : 'No se pudo iniciar sesión.');

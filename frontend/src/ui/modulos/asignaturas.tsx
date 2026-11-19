@@ -225,7 +225,7 @@ export function ModuloAsignaturas({
                           Editar
                         </button>
                         <button
-                          className="record-delete"
+                          className="btn record-delete"
                           type="button"
                           onClick={() => void eliminarAsignatura(asignatura)}
                         >
