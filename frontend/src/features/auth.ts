@@ -93,7 +93,7 @@ export function inicializarAutenticacion(
   const updateLoginNotice = (): void => {
     authStatus.textContent = navigator.onLine
       ? ''
-      : 'Sin conexión: inicia sesión con una cuenta que ya hayas usado en este dispositivo, o crea una cuenta pendiente.';
+      : 'Sin conexión: inicia sesión con una cuenta que ya hayas usado en este dispositivo, o crea una cuenta.';
   };
 
   async function guardarCredencial(
@@ -137,7 +137,7 @@ export function inicializarAutenticacion(
       nombreUsuario: usernameValue
     });
     window.dispatchEvent(new Event('profile-updated'));
-    authStatus.textContent = 'Cuenta guardada en este dispositivo. Se creará y sincronizará cuando vuelva internet.';
+    authStatus.textContent = 'Cuenta guardada en este dispositivo. Se creará y sincronizará cuando vuelvas a tener conexión.';
   }
 
   async function cargarPerfilRemoto(db: IDBDatabase): Promise<void> {
