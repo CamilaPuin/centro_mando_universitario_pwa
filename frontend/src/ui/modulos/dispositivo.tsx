@@ -117,7 +117,7 @@ export function ModuloDispositivo({ activo }: ModuloDispositivoProps): ReactElem
             Activar recordatorios
           </button>
           <p id="notification-status" className="device-status" role="status" aria-live="polite">
-            No se solicitará permiso hasta que pulses el botón.
+            El navegador pedirá permiso cuando pulses “Activar recordatorios”. Si eliges “Ahora no”, podrás activarlos desde aquí después.
           </p>
         </section>
       </div>

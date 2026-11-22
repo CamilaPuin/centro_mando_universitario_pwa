@@ -2,14 +2,17 @@ import { apiRequest, isAuthenticated, isUserSessionActive } from '../services/ap
 import {
   listarAsignaturas,
   listarClasesHorario,
-  listarEntregas
+  listarEntregas,
+  describirErrorParaUsuario
 } from '../utils/db';
 
 const ENABLED_KEY = 'centro-mando-recordatorios-activos';
+const PROMPT_SHOWN_KEY = 'centro-mando-recordatorios-solicitud-mostrada';
 const SENT_REMINDERS_KEY = 'centro-mando-recordatorios-enviados';
 let reminderTimer: number | undefined;
 let reminderRun: (() => void) | undefined;
 let remoteNotificationsCheckedAt = 0;
+let promptShownThisSession = false;
 
 function readSentReminders(): Set<string> {
   try {
@@ -81,7 +84,7 @@ async function revisarRecordatorios(
       }
     } catch (error) {
       console.error('No se pudieron cargar alertas del servidor:', error);
-      status.textContent = `No se pudieron cargar las notificaciones de tu cuenta. Los recordatorios de este dispositivo siguen activos: ${error instanceof Error ? error.message : 'revisa tu conexión.'}`;
+      status.textContent = `No se pudieron cargar las notificaciones de tu cuenta. Los recordatorios de este dispositivo siguen activos: ${describirErrorParaUsuario(error, 'Revisa tu conexión e inténtalo de nuevo.')}`;
     }
   }
   for (const delivery of deliveries) {
@@ -197,9 +200,7 @@ async function habilitarNotificaciones(status: HTMLElement): Promise<void> {
         : 'Recordatorios activados en este dispositivo. Las notificaciones de cuenta requieren iniciar sesión.';
   } catch (error) {
     console.error('No se pudieron activar las notificaciones:', error);
-    status.textContent = error instanceof Error
-      ? `Recordatorios activados en este dispositivo. No se pudieron cargar las notificaciones de tu cuenta: ${error.message}`
-      : 'Recordatorios activados en este dispositivo. No se pudieron cargar las notificaciones de tu cuenta.';
+    status.textContent = `Recordatorios activados en este dispositivo. No se pudieron cargar las notificaciones de tu cuenta: ${describirErrorParaUsuario(error, 'Inténtalo de nuevo más tarde.')}`;
   }
 
 }
@@ -208,17 +209,60 @@ export function inicializarNotificaciones(databaseReady: Promise<IDBDatabase | u
   const button = document.getElementById('btn-enable-notifications') as HTMLButtonElement | null;
   const status = document.getElementById('notification-status');
   if (!button || !status) return;
-  window.addEventListener('auth-changed', () => {
-    remoteNotificationsCheckedAt = 0;
-    reminderRun?.();
-  });
+  const prompt = document.getElementById('notification-permission-prompt');
+  const promptEnable = document.getElementById('notification-prompt-enable');
+  const promptDismiss = document.getElementById('notification-prompt-dismiss');
 
-  button.addEventListener('click', () => {
+  const mostrarInvitacionSiEsNecesaria = (): void => {
+    if (!prompt || !isUserSessionActive() || !('Notification' in window) || !window.isSecureContext) return;
+    if (Notification.permission === 'granted') {
+      activateAcademicReminders(databaseReady, status);
+      status.textContent = 'Recordatorios académicos activos en este dispositivo.';
+      return;
+    }
+    if (Notification.permission !== 'default') return;
+
+    try {
+      if (
+        window.localStorage.getItem(ENABLED_KEY) === 'true' ||
+        window.localStorage.getItem(PROMPT_SHOWN_KEY) === 'true'
+      ) return;
+    } catch (error) {
+      console.warn('No se pudo consultar la preferencia de notificaciones:', error);
+      if (promptShownThisSession) return;
+    }
+
+    promptShownThisSession = true;
+    try {
+      window.localStorage.setItem(PROMPT_SHOWN_KEY, 'true');
+    } catch (error) {
+      console.warn('No se pudo recordar que se mostró la invitación de notificaciones:', error);
+    }
+    prompt.hidden = false;
+  };
+
+  const activarDesdeAccionDelUsuario = (): void => {
+    if (prompt) prompt.hidden = true;
     void habilitarNotificaciones(status).then(() => {
       if ('Notification' in window && Notification.permission === 'granted') {
         activateAcademicReminders(databaseReady, status);
       }
     });
+  };
+
+  const actualizarAlCambiarAutenticacion = (): void => {
+    remoteNotificationsCheckedAt = 0;
+    reminderRun?.();
+    if (isUserSessionActive()) mostrarInvitacionSiEsNecesaria();
+    else if (prompt) prompt.hidden = true;
+  };
+  window.addEventListener('auth-changed', actualizarAlCambiarAutenticacion);
+
+  button.addEventListener('click', activarDesdeAccionDelUsuario);
+  promptEnable?.addEventListener('click', activarDesdeAccionDelUsuario);
+  promptDismiss?.addEventListener('click', () => {
+    if (prompt) prompt.hidden = true;
+    status.textContent = 'Puedes activar los recordatorios más tarde desde tu perfil.';
   });
   try {
     if (
@@ -233,6 +277,7 @@ export function inicializarNotificaciones(databaseReady: Promise<IDBDatabase | u
   } catch (error) {
     console.warn('No se pudo restaurar la preferencia de recordatorios:', error);
   }
+  if (isUserSessionActive()) mostrarInvitacionSiEsNecesaria();
 }
 
 interface RemoteNotification {

@@ -9,6 +9,7 @@ interface ModuloResumenProps {
 export function ModuloResumen({ activo, databaseReady }: ModuloResumenProps): ReactElement {
   const [resumen, setResumen] = useState<ResumenDia>();
   const [error, setError] = useState(false);
+  const [recarga, setRecarga] = useState(0);
 
   useEffect(() => {
     let montado = true;
@@ -38,12 +39,12 @@ export function ModuloResumen({ activo, databaseReady }: ModuloResumenProps): Re
       window.removeEventListener('horario-actualizado', actualizar);
       window.removeEventListener('sesion-estudio-guardada', actualizar);
     };
-  }, [databaseReady]);
+  }, [databaseReady, recarga]);
 
   const cargando = !resumen && !error;
   const textoEstado = error
-    ? 'No se pudo cargar el resumen. Revisa tu almacenamiento local e inténtalo de nuevo.'
-    : 'Cargando…';
+    ? 'Resumen no disponible.'
+    : 'Cargando tu resumen…';
 
   return (
     <section id="tab-resumen" className={activo ? 'tab-view active' : 'tab-view'}>
@@ -59,6 +60,21 @@ export function ModuloResumen({ activo, databaseReady }: ModuloResumenProps): Re
             Nueva entrega
           </button>
         </div>
+        {error && (
+          <div className="summary-error" role="alert">
+            <span>No pudimos mostrar tu resumen.</span>
+            <button
+              className="btn btn-load"
+              type="button"
+              onClick={() => {
+                setError(false);
+                setRecarga(actual => actual + 1);
+              }}
+            >
+              Volver a intentar
+            </button>
+          </div>
+        )}
 
         <div className="metrics-row" aria-live="polite">
           <div className="metric-card">
@@ -71,7 +87,6 @@ export function ModuloResumen({ activo, databaseReady }: ModuloResumenProps): Re
           <div className="metric-card">
             <div className="metric-label"><span>Entregas pendientes</span></div>
             <div className="metric-value">{resumen?.cantidadPendientes ?? '—'}</div>
-            <div className="metric-detail">Tareas y evaluaciones por completar</div>
           </div>
           <div className="metric-card">
             <div className="metric-label"><span>Requieren atención</span></div>
@@ -81,7 +96,6 @@ export function ModuloResumen({ activo, databaseReady }: ModuloResumenProps): Re
           <div className="metric-card">
             <div className="metric-label"><span>Estudio registrado hoy</span></div>
             <div className="metric-value">{resumen?.tiempoEstudio ?? '—'}</div>
-            <div className="metric-detail">Tiempo acumulado en sesiones de enfoque y cronómetro</div>
           </div>
         </div>
       </div>

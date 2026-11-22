@@ -15,7 +15,7 @@ import {
   guardarPerfil,
   obtenerCredencialOffline,
   obtenerPerfil,
-  describirErrorConexionBaseDatos,
+  describirErrorParaUsuario,
   type CredencialOffline
 } from '../utils/db';
 import {
@@ -208,11 +208,7 @@ export function inicializarAutenticacion(
       window.dispatchEvent(new Event('sync-requested'));
       authStatus.textContent = 'Cuenta sincronizada. Tus datos se actualizarán automáticamente.';
     } catch (error) {
-      const storageMessage = describirErrorConexionBaseDatos(error);
-      const message = storageMessage ??
-        (error instanceof Error
-          ? `No se pudo sincronizar la cuenta: ${error.message}`
-          : 'No se pudo sincronizar la cuenta.');
+      const message = describirErrorParaUsuario(error, 'No se pudo sincronizar la cuenta. Inténtalo de nuevo.');
       authStatus.textContent = message;
       authSessionStatus.textContent = message;
     } finally {
@@ -319,8 +315,7 @@ export function inicializarAutenticacion(
         updateButton();
         if (navigator.onLine && !registrationSavedLocally) void sincronizarCredenciales();
       } catch (error) {
-        authStatus.textContent = describirErrorConexionBaseDatos(error) ??
-          (error instanceof Error ? error.message : 'No se pudo iniciar sesión.');
+        authStatus.textContent = describirErrorParaUsuario(error, 'No se pudo iniciar sesión. Revisa tus datos e inténtalo de nuevo.');
       } finally {
         if (submit) submit.disabled = false;
       }

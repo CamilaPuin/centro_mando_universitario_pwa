@@ -18,7 +18,7 @@ export function Encabezado(): ReactElement {
           <img src="icons/icon-192.png" alt="Centro de Mando Universitario" className="brand-logo" />
           <div>
             <div className="brand-title" data-tab="tab-resumen">Centro de Mando Universitario</div>
-            <div className="brand-subtitle">Gestión académica personal</div>
+            <div className="brand-subtitle">U Control</div>
           </div>
         </div>
         <div className="nav-meta">
@@ -53,7 +53,14 @@ export function Encabezado(): ReactElement {
 
           {/* Menú Móvil */}
           <div className="header-menu mobile-nav-menu">
-            <button id="mobile-menu-button" className="header-menu-button hamburger-button" type="button" aria-label="Menú">
+            <button
+              id="mobile-menu-button"
+              className="header-menu-button hamburger-button"
+              type="button"
+              aria-label="Menú principal"
+              aria-expanded="false"
+              aria-controls="mobile-nav-drawer"
+            >
               <span className="hamburger-icon" aria-hidden="true"><span /><span /><span /></span>
             </button>
           </div>
@@ -78,18 +85,41 @@ export function Encabezado(): ReactElement {
         </div>
       </header>
 
+      <aside
+        id="notification-permission-prompt"
+        className="notification-permission-prompt"
+        aria-labelledby="notification-prompt-title"
+        role="status"
+        hidden
+      >
+        <div>
+          <p id="notification-prompt-title" className="notification-prompt-title">¿Quieres recibir recordatorios?</p>
+          <p className="device-help">
+            Te avisaremos sobre próximas entregas y clases. Puedes cambiar esta opción después.
+          </p>
+        </div>
+        <div className="profile-actions">
+          <button id="notification-prompt-enable" className="btn btn-save" type="button">
+            Activar recordatorios
+          </button>
+          <button id="notification-prompt-dismiss" className="btn btn-load" type="button">
+            Ahora no
+          </button>
+        </div>
+      </aside>
+
       {/* Drawer Móvil (Aislado) */}
-      <div id="mobile-nav-drawer" className="mobile-nav-drawer" role="dialog" aria-hidden="true">
+      <nav id="mobile-nav-drawer" className="mobile-nav-drawer" aria-label="Navegación principal" aria-hidden="true">
         <button id="mobile-nav-close" className="mobile-nav-close" aria-label="Cerrar">X</button>
                 <button className="popover-item" type="button" data-tab="tab-resumen">Hoy</button>
-        <button className="popover-item" type="button" data-tab="tab-asignaturas">Materias y horario</button>
+        <button className="popover-item" type="button" data-tab="tab-asignaturas">Asignaturas y horario</button>
         <button className="popover-item" type="button" data-tab="tab-entregas">Entregas</button>
         <button className="popover-item" type="button" data-tab="tab-calendario">Calendario</button>
         <button className="popover-item" type="button" data-tab="tab-progreso">Progreso</button>
         <button className="popover-item" type="button" data-tab="tab-pomodoro">Pomodoro y cronómetro</button>
         <button className="popover-item" type="button" data-tab="tab-notas">Apuntes</button>
         <button className="popover-item" type="button" data-tab="tab-dispositivo">Perfil y recordatorios</button>
-      </div>
+      </nav>
       <div id="mobile-nav-overlay" className="mobile-nav-overlay"></div>
     </>
   );

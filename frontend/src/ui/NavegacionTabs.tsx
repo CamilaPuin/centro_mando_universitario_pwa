@@ -18,7 +18,7 @@ const tabs: TabDefinition[] = [
   },
   {
     id: 'tab-asignaturas',
-    label: 'Materias',
+    label: 'Asignaturas',
     icon: <path d="M4.5 5.25h10.125A2.625 2.625 0 0 1 17.25 7.875V20.25H7.125A2.625 2.625 0 0 1 4.5 17.625V5.25Zm12.75 3h2.25v12h-2.25M8.25 9h6M8.25 12.75h6" />
   },
   {

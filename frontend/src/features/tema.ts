@@ -2,7 +2,7 @@ type Theme = 'light' | 'dark';
 
 const THEME_STORAGE_KEY = 'cmu-theme';
 
-export function inicializarTema(): void {
+export function inicializarTema(): () => void {
   const root = document.documentElement;
   const button = document.getElementById('theme-toggle');
   const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
@@ -35,7 +35,7 @@ export function inicializarTema(): void {
   userSelectedTheme = savedTheme !== null;
   applyTheme(savedTheme ?? (systemTheme.matches ? 'dark' : 'light'));
 
-  button?.addEventListener('click', () => {
+  const toggleTheme = (): void => {
     const nextTheme: Theme = root.dataset.theme === 'dark' ? 'light' : 'dark';
     applyTheme(nextTheme);
     userSelectedTheme = true;
@@ -44,9 +44,16 @@ export function inicializarTema(): void {
     } catch (error) {
       console.warn('No se pudo guardar la preferencia de tema:', error);
     }
-  });
-
-  systemTheme.addEventListener('change', event => {
+  };
+  const followSystemTheme = (event: MediaQueryListEvent): void => {
     if (!userSelectedTheme) applyTheme(event.matches ? 'dark' : 'light');
-  });
+  };
+
+  button?.addEventListener('click', toggleTheme);
+  systemTheme.addEventListener('change', followSystemTheme);
+
+  return () => {
+    button?.removeEventListener('click', toggleTheme);
+    systemTheme.removeEventListener('change', followSystemTheme);
+  };
 }

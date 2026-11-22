@@ -132,13 +132,25 @@ export interface CambioPendiente {
 
 export function describirErrorConexionBaseDatos(error: unknown): string | undefined {
   const message = error instanceof Error ? error.message : String(error);
-  if (
-    (error instanceof DOMException && error.name === 'InvalidStateError') ||
-    /database connection is closing|database is closing/i.test(message)
-  ) {
-    return 'El almacenamiento local se está actualizando. La aplicación se recargará; vuelve a intentarlo en unos segundos. Tus datos guardados no se borraron.';
+  if (/database connection is closing|database is closing/i.test(message)) {
+    return 'El almacenamiento local se está actualizando. Espera unos segundos e inténtalo de nuevo; los datos que ya estaban guardados se mantienen.';
   }
   return undefined;
+}
+
+export function describirErrorParaUsuario(error: unknown, fallback: string): string {
+  const errorConexion = describirErrorConexionBaseDatos(error);
+  if (errorConexion) return errorConexion;
+  if (error instanceof DOMException) {
+    return error.name === 'QuotaExceededError'
+      ? 'No hay suficiente espacio disponible en este dispositivo. Libera espacio e inténtalo de nuevo.'
+      : fallback;
+  }
+  if (!(error instanceof Error) || !error.message.trim()) return fallback;
+  if (/^Failed to execute\b|^Cannot (?:read|set) properties of\b|^The transaction is not active\b|^The database connection is closing\b/i.test(error.message)) {
+    return fallback;
+  }
+  return error.message;
 }
 
 function usuarioActual(): string | undefined {

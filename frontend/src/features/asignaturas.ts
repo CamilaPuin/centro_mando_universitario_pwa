@@ -5,6 +5,7 @@ import {
   guardarClaseHorario,
   listarAsignaturas,
   listarClasesHorario,
+  describirErrorParaUsuario,
   type Asignatura,
   type ClaseHorario
 } from '../utils/db';
@@ -87,7 +88,7 @@ export async function guardarAsignaturaMateria(
       await guardarAsignatura(db, { ...guardada, backendId: response.id, syncPending: false });
       return 'Asignatura guardada.';
     } catch (error) {
-      return `Asignatura guardada. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
+      return `Asignatura guardada. Se volverá a sincronizar automáticamente: ${describirErrorParaUsuario(error, 'No se pudo completar la sincronización. Inténtalo de nuevo.')}`;
     }
   }
 
@@ -176,7 +177,7 @@ export async function guardarClaseMateria(
       await guardarClaseHorario(db, { ...guardada, backendId: response.id, syncPending: false });
       return 'Horario guardado.';
     } catch (error) {
-      return `Horario guardado. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
+      return `Horario guardado. Se volverá a sincronizar automáticamente: ${describirErrorParaUsuario(error, 'No se pudo completar la sincronización. Inténtalo de nuevo.')}`;
     }
   }
 

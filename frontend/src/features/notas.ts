@@ -3,6 +3,7 @@ import {
   guardarApunte,
   listarAsignaturas,
   listarApuntes,
+  describirErrorParaUsuario,
   type ApunteMateria
 } from '../utils/db';
 import { apiRequest, isAuthenticated } from '../services/api';
@@ -66,7 +67,7 @@ export async function guardarApunteMateria(
       await guardarApunte(db, { ...guardado, backendId: remoto.id, syncPending: false });
       return 'Apunte guardado.';
     } catch (error) {
-      return `Apunte guardado. Se volverá a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
+      return `Apunte guardado. Se volverá a sincronizar automáticamente: ${describirErrorParaUsuario(error, 'No se pudo completar la sincronización. Inténtalo de nuevo.')}`;
     }
   }
 

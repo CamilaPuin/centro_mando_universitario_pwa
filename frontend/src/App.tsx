@@ -40,7 +40,7 @@ export function App() {
   useEffect(() => {
     const actualizarSesion = (): void => setSesionActiva(isUserSessionActive());
     window.addEventListener('auth-changed', actualizarSesion);
-    inicializarTema();
+    const limpiarTema = inicializarTema();
     inicializarPwa();
     const limpiarNavegacion = inicializarNavegacion();
     inicializarAutenticacion(databaseReady);
@@ -150,6 +150,7 @@ export function App() {
       document.removeEventListener('keydown', handleKeyDown);
       limpiarNavegacion();
       limpiarSincronizacion();
+      limpiarTema();
     };
   }, []);
 

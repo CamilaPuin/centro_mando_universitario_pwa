@@ -14,7 +14,8 @@ import {
   type Asignatura,
   type ApunteMateria,
   type EntregaAcademica,
-  type SesionEstudio
+  type SesionEstudio,
+  describirErrorParaUsuario
 } from '../utils/db';
 import {
   apiRequest,
@@ -472,7 +473,7 @@ export function inicializarSincronizacion(
         item.id === entrega.asignaturaId || item.nombre === entrega.asignatura
       );
       if (!asignatura?.backendId) {
-        throw new Error(`No se encontró la asignatura "${entrega.asignatura}". Revisa tus materias e inténtalo de nuevo.`);
+        throw new Error(`No se encontró la asignatura "${entrega.asignatura}". Revisa tus asignaturas e inténtalo de nuevo.`);
       }
       const taskType = entrega.categoria === 'examen'
         ? 'EXAM'
@@ -581,7 +582,7 @@ export function inicializarSincronizacion(
     } catch (error) {
       console.error('Error al sincronizar los cambios pendientes:', error);
       publicarEstadoSincronizacion(error instanceof Error
-        ? `No se pudo completar la sincronización. Se volverá a intentar automáticamente: ${error.message}`
+        ? `No se pudo completar la sincronización. Se volverá a intentar automáticamente: ${describirErrorParaUsuario(error, 'Revisa tu conexión e inténtalo de nuevo.')}`
         : 'No se pudo completar la sincronización. Se volverá a intentar automáticamente.');
     }
   }
