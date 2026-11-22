@@ -27,6 +27,29 @@ import {
   publicarEstadoSincronizacion
 } from './entregas';
 
+const PRIORIDAD_API_POR_ENTREGA = {
+  baja: 'LOW',
+  media: 'MEDIUM',
+  alta: 'HIGH'
+} as const satisfies Record<NonNullable<EntregaAcademica['prioridad']>, RemoteTask['priority']>;
+
+function prioridadParaApi(prioridad: EntregaAcademica['prioridad']): RemoteTask['priority'] {
+  return PRIORIDAD_API_POR_ENTREGA[prioridad ?? 'media'];
+}
+
+function prioridadDesdeApi(prioridad: RemoteTask['priority']): NonNullable<EntregaAcademica['prioridad']> {
+  switch (prioridad.toUpperCase()) {
+    case 'LOW':
+      return 'baja';
+    case 'MEDIUM':
+      return 'media';
+    case 'HIGH':
+      return 'alta';
+    default:
+      throw new Error('El servicio devolvió una prioridad de entrega no válida.');
+  }
+}
+
 export function inicializarSincronizacion(
   databaseReady: Promise<IDBDatabase | undefined>
 ): () => void {
@@ -123,7 +146,7 @@ export function inicializarSincronizacion(
         detalle: task.description ?? '',
         estado: status,
         categoria: category,
-        prioridad: task.priority.toLowerCase() as EntregaAcademica['prioridad'],
+        prioridad: prioridadDesdeApi(task.priority),
         ...((evaluation?.id ?? cached?.evaluationBackendId) === undefined
           ? {}
           : { evaluationBackendId: evaluation?.id ?? cached?.evaluationBackendId }),
@@ -278,7 +301,7 @@ export function inicializarSincronizacion(
         title: delivery.titulo,
         description: delivery.detalle,
         dueDate: delivery.fechaEntrega,
-        priority: (delivery.prioridad ?? 'media').toUpperCase(),
+        priority: prioridadParaApi(delivery.prioridad),
         taskType
       };
       let remoteTask = tasksFromApi.find(item =>
@@ -461,7 +484,7 @@ export function inicializarSincronizacion(
         title: entrega.titulo,
         description: entrega.detalle,
         dueDate: entrega.fechaEntrega,
-        priority: (entrega.prioridad ?? 'media').toUpperCase(),
+        priority: prioridadParaApi(entrega.prioridad),
         taskType
       };
       const remoteTask = entrega.backendId
@@ -626,7 +649,7 @@ interface RemoteTask {
   title: string;
   description: string | null;
   dueDate: string;
-  priority: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH';
   taskType: string;
   currentStateName: string;
 }
