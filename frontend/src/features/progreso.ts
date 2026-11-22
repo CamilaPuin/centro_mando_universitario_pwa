@@ -1,7 +1,8 @@
 import {
   guardarMetas,
   listarSesionesEstudio,
-  obtenerMetas
+  obtenerMetas,
+  describirErrorParaUsuario
 } from '../utils/db';
 import { apiRequest, isAuthenticated } from '../services/api';
 
@@ -93,7 +94,7 @@ export async function obtenerDatosProgreso(
       ];
     } catch (error) {
       console.error('No se pudo cargar el resumen semanal del servidor:', error);
-      errorSemanal = `No se pudo actualizar el resumen semanal: ${error instanceof Error ? error.message : 'inténtalo de nuevo.'}`;
+      errorSemanal = `No se pudo actualizar el resumen semanal: ${describirErrorParaUsuario(error, 'Inténtalo de nuevo.')}`;
     }
   }
 
@@ -175,7 +176,7 @@ export async function guardarMetasProgreso(
       await guardarMetas(db, { minutosSemanales, syncPending: false });
       return 'Metas guardadas.';
     } catch (error) {
-      return `Metas guardadas. Se volverán a sincronizar automáticamente: ${error instanceof Error ? error.message : 'No se pudo completar la sincronización.'}`;
+      return `Metas guardadas. Se volverán a sincronizar automáticamente: ${describirErrorParaUsuario(error, 'No se pudo completar la sincronización. Inténtalo de nuevo.')}`;
     }
   }
 

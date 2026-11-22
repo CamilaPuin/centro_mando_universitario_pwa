@@ -4,6 +4,7 @@ import {
   obtenerDatosProgreso,
   type DatosProgreso
 } from '../../features/progreso';
+import { describirErrorParaUsuario } from '../../utils/db';
 
 interface ModuloProgresoProps {
   activo: boolean;
@@ -34,9 +35,7 @@ export function ModuloProgreso({
         console.error('No se pudo calcular el progreso semanal:', causa);
         if (montado) {
           setDatos(undefined);
-          setEstado(causa instanceof Error
-            ? causa.message
-            : 'No se pudo cargar el progreso semanal.');
+          setEstado(describirErrorParaUsuario(causa, 'No se pudo cargar el progreso semanal. Inténtalo de nuevo.'));
         }
       }
     };
@@ -61,7 +60,7 @@ export function ModuloProgreso({
       setEstado(mensaje);
       setRecarga(actual => actual + 1);
     } catch (causa) {
-      setEstado(causa instanceof Error ? causa.message : 'No se pudieron guardar las metas.');
+      setEstado(describirErrorParaUsuario(causa, 'No se pudieron guardar las metas. Inténtalo de nuevo.'));
     }
   };
 

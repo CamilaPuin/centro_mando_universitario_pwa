@@ -167,6 +167,33 @@ textarea {
   gap: 2px;
 }
 
+.notification-permission-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-callout);
+  color: var(--text-main);
+}
+
+.notification-permission-prompt .device-help {
+  margin: 2px 0 0;
+}
+
+.notification-prompt-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.notification-permission-prompt .profile-actions {
+  padding: 0;
+}
+
 .date-pill {
   padding: 4px 8px;
   color: var(--text-subtle);
@@ -302,7 +329,8 @@ textarea {
 
 @media (max-width: 640px) {
   .mobile-nav-menu {
-    display: block;
+    display: flex;
+    align-items: center;
   }
 }
 
@@ -710,6 +738,16 @@ body.mobile-menu-open {
 
 .hero-action:hover {
   background: var(--bg-active);
+}
+
+.summary-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -12px 0 20px;
+  color: var(--danger);
+  font-size: 14px;
 }
 
 .hero-action svg {
@@ -1401,7 +1439,6 @@ textarea.form-control {
   align-items: center;
   justify-content: center;
   padding: 4px 10px;
-  border: 1px solid var(--danger);
   border-radius: var(--radius-sm);
   background: var(--danger-soft);
   color: var(--danger);

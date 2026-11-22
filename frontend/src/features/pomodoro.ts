@@ -1,4 +1,4 @@
-import { guardarSesionEstudio, listarAsignaturas } from '../utils/db';
+import { describirErrorParaUsuario, guardarSesionEstudio, listarAsignaturas } from '../utils/db';
 import { apiRequest, isAuthenticated } from '../services/api';
 
 type ModoTemporizador = 'enfoque' | 'descanso' | 'cronometro';
@@ -175,9 +175,7 @@ export function inicializarPomodoro(databaseReady: Promise<IDBDatabase | undefin
         if (modoTerminado === 'enfoque') {
           void guardarSesion('pomodoro').catch(error => {
             console.error('No se pudo guardar la sesión Pomodoro:', error);
-            timerStatus.textContent = error instanceof Error
-              ? error.message
-              : 'No se pudo guardar la sesión de estudio.';
+            timerStatus.textContent = describirErrorParaUsuario(error, 'No se pudo guardar la sesión de estudio. Inténtalo de nuevo.');
           });
           timerStatus.textContent = '¡Enfoque completado! La sesión se está guardando.';
         } else {
@@ -205,7 +203,7 @@ export function inicializarPomodoro(databaseReady: Promise<IDBDatabase | undefin
     const tipoSesion: TipoSesion = mode === 'cronometro' ? 'cronometro' : 'pomodoro';
     void guardarSesion(tipoSesion).catch(error => {
       console.error('No se pudo guardar el tiempo de estudio:', error);
-      timerStatus.textContent = error instanceof Error ? error.message : 'No se pudo guardar la sesión.';
+      timerStatus.textContent = describirErrorParaUsuario(error, 'No se pudo guardar la sesión. Inténtalo de nuevo.');
     });
     mode = 'enfoque';
     secondsRemaining = focusDuration;
@@ -218,7 +216,7 @@ export function inicializarPomodoro(databaseReady: Promise<IDBDatabase | undefin
     const tipoSesion: TipoSesion = mode === 'cronometro' ? 'cronometro' : 'pomodoro';
     void guardarSesion(tipoSesion).catch(error => {
       console.error('No se pudo guardar el tiempo de estudio:', error);
-      timerStatus.textContent = error instanceof Error ? error.message : 'No se pudo guardar la sesión.';
+      timerStatus.textContent = describirErrorParaUsuario(error, 'No se pudo guardar la sesión. Inténtalo de nuevo.');
     });
     mode = 'descanso';
     secondsRemaining = 5 * 60;
@@ -232,7 +230,7 @@ export function inicializarPomodoro(databaseReady: Promise<IDBDatabase | undefin
     const tipoSesion: TipoSesion = mode === 'cronometro' ? 'cronometro' : 'pomodoro';
     void guardarSesion(tipoSesion).catch(error => {
       console.error('No se pudo guardar el tiempo de estudio:', error);
-      timerStatus.textContent = error instanceof Error ? error.message : 'No se pudo guardar la sesión.';
+      timerStatus.textContent = describirErrorParaUsuario(error, 'No se pudo guardar la sesión. Inténtalo de nuevo.');
     });
     mode = 'cronometro';
     secondsRemaining = 0;

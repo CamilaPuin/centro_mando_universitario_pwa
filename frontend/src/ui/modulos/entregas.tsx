@@ -8,7 +8,7 @@ import {
   type DatosEntregas,
   type FormularioEntrega
 } from '../../features/entregas';
-import type { EntregaAcademica } from '../../utils/db';
+import { describirErrorParaUsuario, type EntregaAcademica } from '../../utils/db';
 import { isAuthenticated } from '../../services/api';
 
 interface ModuloEntregasProps {
@@ -138,9 +138,7 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
       }
     } catch (causa) {
       console.error('No se pudo guardar la entrega:', causa);
-      setEstado(causa instanceof Error
-        ? `No se pudo guardar la entrega: ${causa.message}`
-        : 'No se pudo guardar la entrega.');
+      setEstado(`No se pudo guardar la entrega: ${describirErrorParaUsuario(causa, 'Inténtalo de nuevo.')}`);
     }
   };
 

@@ -12,6 +12,7 @@ import {
   obtenerPerfil,
   guardarCredencialOffline,
   renombrarUsuarioLocal,
+  describirErrorParaUsuario,
   type PerfilEstudiante
 } from '../utils/db';
 import { crearCredencialLocal } from '../utils/auth-crypto';
@@ -269,8 +270,8 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
         }
       } catch (error) {
         const dbMessage = describirErrorConexionBaseDatos(error);
-        const message = dbMessage ?? (error instanceof Error ? error.message : 'No se pudo guardar el perfil.');
-        profileStatus.textContent = currentProfile?.syncPending && !(error instanceof Error && error.message.includes('IndexedDB'))
+        const message = dbMessage ?? describirErrorParaUsuario(error, 'No se pudo guardar el perfil. Inténtalo de nuevo.');
+        profileStatus.textContent = currentProfile?.syncPending && !dbMessage
           ? `Perfil guardado localmente. No se pudo sincronizar: ${message}`
           : message;
       }
@@ -377,9 +378,7 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
         newPasswordInput.value = '';
         profileStatus.textContent = 'Contraseña actualizada. La contraseña anterior ya no es válida.';
       } catch (error) {
-        profileStatus.textContent = error instanceof Error
-          ? error.message
-          : 'No se pudo actualizar la contraseña.';
+        profileStatus.textContent = describirErrorParaUsuario(error, 'No se pudo actualizar la contraseña. Inténtalo de nuevo.');
       }
     })();
   });
@@ -407,8 +406,7 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
     try {
       stagePhoto(file);
     } catch (error) {
-      profileStatus.textContent = describirErrorConexionBaseDatos(error) ??
-        (error instanceof Error ? error.message : 'No se pudo guardar la fotografía.');
+      profileStatus.textContent = describirErrorParaUsuario(error, 'No se pudo guardar la fotografía. Inténtalo de nuevo.');
     }
   });
 
@@ -437,8 +435,7 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
         cameraDialog.close();
         stagePhoto(photo);
       } catch (error) {
-        profileStatus.textContent = describirErrorConexionBaseDatos(error) ??
-          (error instanceof Error ? error.message : 'No se pudo capturar la foto.');
+        profileStatus.textContent = describirErrorParaUsuario(error, 'No se pudo capturar la foto. Inténtalo de nuevo.');
       }
     })();
   });
@@ -452,9 +449,7 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
     });
     void synchronizePendingProfile().catch(error => {
       console.error('No se pudo sincronizar el perfil:', error);
-      profileStatus.textContent = error instanceof Error
-        ? `Perfil guardado localmente. No se pudo sincronizar: ${error.message}`
-        : 'No se pudo sincronizar el perfil.';
+      profileStatus.textContent = `Perfil guardado localmente. No se pudo sincronizar: ${describirErrorParaUsuario(error, 'Inténtalo de nuevo más tarde.')}`;
     });
   });
   window.addEventListener('profile-updated', () => {
@@ -464,17 +459,13 @@ export function inicializarPerfil(databaseReady: Promise<IDBDatabase | undefined
     });
     void synchronizePendingProfile().catch(error => {
       console.error('No se pudo sincronizar el perfil:', error);
-      profileStatus.textContent = error instanceof Error
-        ? `Perfil guardado localmente. No se pudo sincronizar: ${error.message}`
-        : 'No se pudo sincronizar el perfil.';
+      profileStatus.textContent = `Perfil guardado localmente. No se pudo sincronizar: ${describirErrorParaUsuario(error, 'Inténtalo de nuevo más tarde.')}`;
     });
   });
   window.addEventListener('online', () => {
     void synchronizePendingProfile().catch(error => {
       console.error('No se pudo sincronizar el perfil:', error);
-      profileStatus.textContent = error instanceof Error
-        ? `Perfil guardado localmente. No se pudo sincronizar: ${error.message}`
-        : 'No se pudo sincronizar el perfil.';
+      profileStatus.textContent = `Perfil guardado localmente. No se pudo sincronizar: ${describirErrorParaUsuario(error, 'Inténtalo de nuevo más tarde.')}`;
     });
   });
   window.addEventListener('pagehide', () => {

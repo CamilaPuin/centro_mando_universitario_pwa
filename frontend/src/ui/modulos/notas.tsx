@@ -5,7 +5,7 @@ import {
   obtenerDatosApuntes,
   type DatosApuntes
 } from '../../features/notas';
-import type { ApunteMateria } from '../../utils/db';
+import { describirErrorParaUsuario, type ApunteMateria } from '../../utils/db';
 
 interface ModuloNotasProps {
   activo: boolean;
@@ -34,9 +34,7 @@ export function ModuloNotas({ activo, databaseReady }: ModuloNotasProps): ReactE
       } catch (causa) {
         console.error('No se pudieron cargar los apuntes:', causa);
         if (montado) {
-          setEstado(causa instanceof Error
-            ? causa.message
-            : 'No se pudieron cargar los apuntes.');
+          setEstado(describirErrorParaUsuario(causa, 'No se pudieron cargar los apuntes. Inténtalo de nuevo.'));
         }
       }
     };
@@ -69,7 +67,7 @@ export function ModuloNotas({ activo, databaseReady }: ModuloNotasProps): ReactE
       setEstado(mensaje);
       setRecarga(actual => actual + 1);
     } catch (causa) {
-      setEstado(causa instanceof Error ? causa.message : 'No se pudo guardar el apunte.');
+      setEstado(describirErrorParaUsuario(causa, 'No se pudo guardar el apunte. Inténtalo de nuevo.'));
     }
   };
 
@@ -81,20 +79,24 @@ export function ModuloNotas({ activo, databaseReady }: ModuloNotasProps): ReactE
   };
 
   const eliminar = async (apunte: ApunteMateria): Promise<void> => {
+    const extracto = apunte.contenido.replace(/\s+/g, ' ').slice(0, 80);
+    if (!window.confirm(
+      `¿Eliminar este apunte de ${apunte.asignatura}?\n\n"${extracto}${apunte.contenido.length > 80 ? '…' : ''}"\n\nEsta acción no se puede deshacer.`
+    )) return;
     try {
       await eliminarApunteMateria(databaseReady, apunte);
       if (apunteEditando === apunte.id) limpiarFormulario();
       setEstado('Apunte eliminado.');
       setRecarga(actual => actual + 1);
     } catch (causa) {
-      setEstado(causa instanceof Error ? causa.message : 'No se pudo eliminar el apunte.');
+      setEstado(describirErrorParaUsuario(causa, 'No se pudo eliminar el apunte. Inténtalo de nuevo.'));
     }
   };
 
   return (
     <section id="tab-notas" className={activo ? 'tab-view active' : 'tab-view'}>
       <div className="crypto-wrapper">
-        <h2>Bitácora rápida por asignatura</h2>
+        <h2>Bitácora rápida</h2>
         <p className="subtitle">Guarda recordatorios y apuntes breves junto a cada materia. Puedes editarlos después.</p>
         <form id="note-form" className="delivery-form" onSubmit={guardar}>
           <div className="form-group">

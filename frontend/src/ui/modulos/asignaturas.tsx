@@ -7,7 +7,7 @@ import {
   obtenerDatosAsignaturas,
   type DatosAsignaturas
 } from '../../features/asignaturas';
-import type { Asignatura, ClaseHorario } from '../../utils/db';
+import { describirErrorParaUsuario, type Asignatura, type ClaseHorario } from '../../utils/db';
 
 interface ModuloAsignaturasProps {
   activo: boolean;
@@ -94,19 +94,18 @@ export function ModuloAsignaturas({
       console.error('No se pudo guardar la asignatura:', causa);
       setEstadoAsignaturas(causa instanceof DOMException && causa.name === 'ConstraintError'
         ? 'Ya existe una asignatura con ese nombre.'
-        : causa instanceof Error
-          ? causa.message
-          : 'No se pudo guardar la asignatura.');
+        : describirErrorParaUsuario(causa, 'No se pudo guardar la asignatura. Inténtalo de nuevo.'));
     }
   };
 
   const eliminarAsignatura = async (asignatura: Asignatura): Promise<void> => {
+    if (!window.confirm(`¿Eliminar la asignatura "${asignatura.nombre}"? Esta acción no se puede deshacer.`)) return;
     try {
       const mensaje = await eliminarAsignaturaMateria(databaseReady, asignatura);
       setEstadoAsignaturas(mensaje);
       window.dispatchEvent(new Event('asignaturas-actualizadas'));
     } catch (causa) {
-      setEstadoAsignaturas(causa instanceof Error ? causa.message : 'No se pudo eliminar la asignatura.');
+      setEstadoAsignaturas(describirErrorParaUsuario(causa, 'No se pudo eliminar la asignatura. Inténtalo de nuevo.'));
     }
   };
 
@@ -127,18 +126,23 @@ export function ModuloAsignaturas({
       window.dispatchEvent(new Event('horario-actualizado'));
     } catch (causa) {
       console.error('No se pudo guardar la clase:', causa);
-      setEstadoHorario(causa instanceof Error ? causa.message : 'No se pudo guardar la clase.');
+      setEstadoHorario(describirErrorParaUsuario(causa, 'No se pudo guardar la clase. Inténtalo de nuevo.'));
     }
   };
 
   const eliminarClase = async (clase: ClaseHorario): Promise<void> => {
+    const nombreAsignatura = datos?.asignaturas.find(item => item.id === clase.asignaturaId)?.nombre
+      ?? 'esta asignatura';
+    if (!window.confirm(
+      `¿Eliminar la clase de ${nombreAsignatura} del ${DIAS[clase.diaSemana]} de ${clase.horaInicio} a ${clase.horaFin}? Esta acción no se puede deshacer.`
+    )) return;
     try {
       await eliminarClaseMateria(databaseReady, clase);
       setEstadoHorario('Clase eliminada del horario.');
       window.dispatchEvent(new Event('asignaturas-actualizadas'));
       window.dispatchEvent(new Event('horario-actualizado'));
     } catch (causa) {
-      setEstadoHorario(causa instanceof Error ? causa.message : 'No se pudo eliminar la clase.');
+      setEstadoHorario(describirErrorParaUsuario(causa, 'No se pudo eliminar la clase. Inténtalo de nuevo.'));
     }
   };
 
@@ -169,7 +173,7 @@ export function ModuloAsignaturas({
       <div className="dashboard-grid">
         <div className="dashboard-panel">
           <h2 className="panel-title">Mis asignaturas</h2>
-          <p className="device-help">Administra tus materias y úsalas en horarios, apuntes y entregas.</p>
+          <p className="device-help">Administra tus asignaturas y úsalas en horarios, apuntes y entregas.</p>
           <form id="subject-form" className="delivery-form" onSubmit={guardarAsignatura}>
             <input id="subject-id" type="hidden" value={asignaturaEditando ?? ''} readOnly />
             <div className="form-group">
