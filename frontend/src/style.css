@@ -1441,6 +1441,7 @@ textarea.form-control {
   padding: 4px 10px;
   border-radius: var(--radius-sm);
   background: var(--danger-soft);
+  border: 0px;
   color: var(--danger);
   cursor: pointer;
   font-size: 14px;
