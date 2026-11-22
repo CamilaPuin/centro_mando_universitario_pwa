@@ -9,7 +9,6 @@ import {
   type FormularioEntrega
 } from '../../features/entregas';
 import { describirErrorParaUsuario, type EntregaAcademica } from '../../utils/db';
-import { isAuthenticated } from '../../services/api';
 
 interface ModuloEntregasProps {
   activo: boolean;
@@ -142,19 +141,6 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
     }
   };
 
-  const sincronizarAhora = (): void => {
-    if (!isAuthenticated()) {
-      setEstado('Inicia sesión con la misma cuenta en todos tus dispositivos para compartir las entregas.');
-      return;
-    }
-    if (!navigator.onLine) {
-      setEstado('Sin conexión. La entrega permanece guardada en este dispositivo y se sincronizará al reconectarte.');
-      return;
-    }
-    setEstado('Sincronizando tus entregas…');
-    window.dispatchEvent(new Event(EVENTO_SOLICITAR_SINCRONIZACION));
-  };
-
   const grupos: Record<EstadoEntrega, EntregaAcademica[]> = {
     pendiente: [],
     'en-progreso': [],
@@ -169,7 +155,7 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
     <section id="tab-entregas" className={activo ? 'tab-view active' : 'tab-view'}>
       <div className="dashboard-panel exam-week-panel">
         <h2 className="panel-title">Exámenes de la semana</h2>
-        <p className="device-help">Evaluaciones con categoría “Examen” durante los próximos siete días.</p>
+        <p className="device-help">Entregas con categoría “Examen” en los próximos siete días.</p>
         <div id="exam-week-list" className="exam-week-list" aria-live="polite" aria-busy={cargando}>
           {cargando
             ? <p className="dashboard-empty">{estado || 'Cargando exámenes…'}</p>
@@ -197,11 +183,8 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
       <div className="dashboard-panel delivery-editor-panel">
         <h2 className="panel-title">Entrega o evaluación</h2>
         <p className="device-help">
-          Los cambios se guardan en este dispositivo. Para verlos en otros, inicia sesión con la misma cuenta y sincroniza cuando tengas conexión.
+          Tus cambios se guardan en este dispositivo y se sincronizan automáticamente cuando haya conexión y hayas iniciado sesión con la misma cuenta.
         </p>
-        <button className="btn btn-load" type="button" onClick={sincronizarAhora}>
-          Sincronizar ahora
-        </button>
         <form id="delivery-form" className="delivery-form" onSubmit={guardar}>
           <input id="delivery-id" type="hidden" value={idEditando ?? ''} readOnly />
           <div className="form-group">
@@ -213,7 +196,7 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
               className="form-control"
               required
               maxLength={160}
-              placeholder="Ej. Taller de límites"
+              placeholder="Ej. Proyecto de PWA"
               value={titulo}
               onChange={event => setTitulo(event.currentTarget.value)}
             />

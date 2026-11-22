@@ -22,6 +22,16 @@ export class ApiConnectionError extends Error {
   }
 }
 
+export class ApiResponseError extends Error {
+  readonly status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'ApiResponseError';
+    this.status = status;
+  }
+}
+
 function dispatchAuthChanged(): void {
   window.dispatchEvent(new Event('auth-changed'));
   for (const eventName of [
@@ -156,7 +166,10 @@ export async function apiRequest<T>(
       clearRemoteSession();
       window.dispatchEvent(new Event('auth-token-expired'));
     }
-    throw new Error(mensajeDeErrorApi(response.status, path, authenticated));
+    throw new ApiResponseError(
+      response.status,
+      mensajeDeErrorApi(response.status, path, authenticated)
+    );
   }
 
   if (response.status === 204) return undefined as T;
