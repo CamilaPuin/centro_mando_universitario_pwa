@@ -84,7 +84,7 @@ async function revisarRecordatorios(
       }
     } catch (error) {
       console.error('No se pudieron cargar alertas del servidor:', error);
-      status.textContent = `No se pudieron cargar las notificaciones de tu cuenta. Los recordatorios de este dispositivo siguen activos: ${describirErrorParaUsuario(error, 'Revisa tu conexión e inténtalo de nuevo.')}`;
+      status.textContent = `No se pudieron cargar las notificaciones de tu cuenta. Los recordatorios de este dispositivo siguen activos`;
     }
   }
   for (const delivery of deliveries) {

@@ -9,7 +9,6 @@ export function ModuloDispositivo({ activo }: ModuloDispositivoProps): ReactElem
     <section id="tab-dispositivo" className={activo ? 'tab-view active' : 'tab-view'}>
       <div className="device-tools">
         <section className="dashboard-panel profile-panel" aria-labelledby="profile-title">
-          <h2 id="profile-title" className="panel-title">Tu perfil</h2>
           <div className="profile-overview" id="profile-overview">
             <div className="profile-avatar">
               <span id="profile-avatar-initial" className="profile-avatar-initial" aria-hidden="true">P</span>
@@ -111,7 +110,7 @@ export function ModuloDispositivo({ activo }: ModuloDispositivoProps): ReactElem
         <section className="dashboard-panel" aria-labelledby="reminders-title">
           <h2 id="reminders-title" className="panel-title">Recordatorios de estudio</h2>
           <p className="device-help">
-            Te avisaremos sobre fechas límite y clases próximas. Los recordatorios de este dispositivo funcionan mientras la app esté activa; las notificaciones de tu cuenta requieren habilitar las notificaciones push.
+            Te avisaremos sobre fechas límite y clases próximas. Los recordatorios de este dispositivo funcionan mientras la app esté activa; las notificaciones de tu cuenta requieren habilitar las notificaciones.
           </p>
           <button id="btn-enable-notifications" className="btn btn-save" type="button">
             Activar recordatorios

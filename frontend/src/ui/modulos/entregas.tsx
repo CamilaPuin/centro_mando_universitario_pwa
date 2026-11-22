@@ -180,6 +180,7 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
                 ))}
         </div>
       </div>
+      
       <div className="dashboard-panel delivery-editor-panel">
         <h2 className="panel-title">Entrega o evaluación</h2>
         <p className="device-help">
@@ -317,78 +318,54 @@ export function ModuloEntregas({ activo, databaseReady }: ModuloEntregasProps): 
           </div>
         </form>
         <p id="delivery-sync-status" className="device-status" role="status" aria-live="polite">{estado}</p>
-        <div
-          id="local-deliveries"
-          className="kanban-cards local-deliveries"
-          aria-label="Entregas y evaluaciones registradas"
-          aria-busy={cargando}
-        >
-          {cargando
-            ? <p className="dashboard-empty">Cargando entregas…</p>
-            : datos.entregas.length === 0
-              ? <p className="dashboard-empty">Aún no tienes entregas registradas.</p>
-              : datos.entregas.map((entrega, indice) => (
-                  <article
-                    key={entrega.id ?? `${entrega.titulo}-${entrega.asignatura}-${indice}`}
-                    className="kanban-card local-delivery-card"
-                  >
-                    <h3>{entrega.titulo}</h3>
-                    <p>
-                      {entrega.asignatura} • {entrega.categoria ?? 'tarea'} •
-                      {' '}{entrega.fechaEntrega ? new Date(entrega.fechaEntrega).toLocaleString() : 'Sin fecha'}
-                    </p>
-                    <p>{entrega.detalle}</p>
-                    <button className="btn btn-load" type="button" onClick={() => editarEntrega(entrega)}>
-                      Editar
-                    </button>
-                  </article>
-                ))}
+        <div className="kanban-grid" aria-busy={cargando}>
+          {COLUMNAS.map(columna => (
+            <div key={columna.estado} className="kanban-col">
+              <div className="kanban-col-header">
+                <div className="kanban-title">
+                  <span className={`kanban-dot ${columna.clase}`} />
+                  <span>{columna.titulo}</span>
+                </div>
+                <span className="panel-badge" id={columna.contador}>
+                  {grupos[columna.estado].length}
+                </span>
+              </div>
+              <div className="kanban-cards" id={
+                columna.estado === 'pendiente'
+                  ? 'col-pending'
+                  : columna.estado === 'en-progreso' ? 'col-progress' : 'col-done'
+              }>
+                {cargando
+                  ? <p className="dashboard-empty">Cargando entregas…</p>
+                  : grupos[columna.estado].length === 0
+                    ? <p className="dashboard-empty">Sin registros en esta categoría.</p>
+                    : grupos[columna.estado].map((entrega, indice) => (
+                        <article
+                          key={entrega.id ?? `${entrega.titulo}-${entrega.asignatura}-${indice}`}
+                          className={`kanban-card${columna.estado === 'entregada' ? ' delivered' : ''}`}
+                        >
+                          <h3>{entrega.titulo}</h3>
+                          <p>
+                            {entrega.asignatura}
+                            {entrega.fechaEntrega ? ` · ${new Date(entrega.fechaEntrega).toLocaleString()}` : ''}
+                          </p>
+                          <p>
+                            {entrega.categoria ?? 'tarea'} · Importancia: {entrega.prioridad ?? 'media'} ·
+                            {' '}Estado: {entrega.estado === 'entregada'
+                              ? 'Entregada'
+                              : entrega.estado === 'en-progreso' ? 'En progreso' : 'Pendiente'}
+                          </p>
+                          <button className="btn btn-load" type="button" onClick={() => editarEntrega(entrega)}>
+                            Editar
+                          </button>
+                        </article>
+                      ))}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
-      <div className="kanban-grid">
-        {COLUMNAS.map(columna => (
-          <div key={columna.estado} className="kanban-col">
-            <div className="kanban-col-header">
-              <div className="kanban-title">
-                <span className={`kanban-dot ${columna.clase}`} />
-                <span>{columna.titulo}</span>
-              </div>
-              <span className="panel-badge" id={columna.contador}>
-                {grupos[columna.estado].length}
-              </span>
-            </div>
-            <div className="kanban-cards" id={
-              columna.estado === 'pendiente'
-                ? 'col-pending'
-                : columna.estado === 'en-progreso' ? 'col-progress' : 'col-done'
-            }>
-              {grupos[columna.estado].length === 0
-                ? <p className="dashboard-empty">Sin registros en esta categoría.</p>
-                : grupos[columna.estado].map((entrega, indice) => (
-                    <article
-                      key={entrega.id ?? `${entrega.titulo}-${entrega.asignatura}-${indice}`}
-                      className={`kanban-card${columna.estado === 'entregada' ? ' delivered' : ''}`}
-                    >
-                      <h3>{entrega.titulo}</h3>
-                      <p>
-                        {entrega.asignatura}
-                        {entrega.fechaEntrega ? ` · ${new Date(entrega.fechaEntrega).toLocaleString()}` : ''}
-                      </p>
-                      <p>
-                        {entrega.categoria ?? 'tarea'} · Importancia: {entrega.prioridad ?? 'media'} ·
-                        {' '}Estado: {entrega.estado === 'entregada'
-                          ? 'Entregada'
-                          : entrega.estado === 'en-progreso' ? 'En progreso' : 'Pendiente'}
-                      </p>
-                      <button className="btn btn-load" type="button" onClick={() => editarEntrega(entrega)}>
-                        Editar
-                      </button>
-                    </article>
-                  ))}
-            </div>
-          </div>
-        ))}
-      </div>
+      
     </section>
   );
 }

@@ -129,7 +129,7 @@ export async function guardarEntrega(
     ? 'Entrega guardada. Sincronizando tus cambios…'
     : isAuthenticated()
       ? 'Entrega guardada. Se sincronizará automáticamente cuando vuelva la conexión.'
-      : 'Entrega guardada. Inicia sesión para sincronizar tus cambios entre dispositivos.';
+      : 'Entrega guardada. Inicia sesión para sinronizar los cambio.';
 
   return { mensaje, nuevaAsignatura, sincronizar };
 }
