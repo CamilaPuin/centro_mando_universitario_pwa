@@ -314,7 +314,7 @@ textarea {
   left: 0;
   bottom: 0;
   width: 280px;
-  background: white;
+  background: var(--bg-card);
   border-right: 1px solid var(--border);
   box-shadow: var(--shadow-popover);
   z-index: 100;
@@ -341,7 +341,7 @@ textarea {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   border-bottom: 1px solid var(--border);
-  background: white;
+  background: var(--bg-card);
   position: fixed;
   top: 0;
   left: 0;
@@ -359,7 +359,7 @@ textarea {
   border: none;
   background: transparent;
   cursor: pointer;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
