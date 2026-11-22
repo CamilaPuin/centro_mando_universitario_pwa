@@ -14,6 +14,7 @@ export function ModuloPomodoro({ activo, databaseReady }: ModuloPomodoroProps): 
     let montado = true;
     const actualizar = async (): Promise<void> => {
       try {
+        await databaseReady;
         const resultado = await obtenerDatosAsignaturas(databaseReady);
         if (!montado) return;
         setDatos(resultado);
@@ -21,13 +22,17 @@ export function ModuloPomodoro({ activo, databaseReady }: ModuloPomodoroProps): 
         console.error('No se pudieron cargar las asignaturas para el pomodoro:', causa);
       }
     };
+
     void actualizar();
-    window.addEventListener('asignaturas-actualizadas', actualizar);
+
+    const eventos = ['asignaturas-actualizadas', 'auth-changed', 'sesion-estudio-guardada'];
+    eventos.forEach(evento => window.addEventListener(evento, actualizar));
+
     return () => {
       montado = false;
-      window.removeEventListener('asignaturas-actualizadas', actualizar);
+      eventos.forEach(evento => window.removeEventListener(evento, actualizar));
     };
-  }, [databaseReady]);
+  }, [databaseReady, activo]);
 
   return (
     <section id="tab-pomodoro" className={activo ? 'tab-view active' : 'tab-view'}>
