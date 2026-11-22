@@ -46,7 +46,7 @@ export function App() {
     inicializarAutenticacion(databaseReady);
 
     const actualizarNavegacionSecundaria = (tabId: string): void => {
-      document.querySelectorAll<HTMLButtonElement>('#mobile-nav-menu [data-tab]').forEach(menuItem => {
+      document.querySelectorAll<HTMLButtonElement>('#mobile-nav-drawer [data-tab]').forEach(menuItem => {
         if (menuItem.getAttribute('data-tab') === tabId) {
           menuItem.setAttribute('aria-current', 'page');
         } else {
@@ -68,7 +68,7 @@ export function App() {
     const handleTabClick = (event: MouseEvent): void => {
       const target = event.target;
       if (!(target instanceof Element)) return;
-      const button = target.closest<HTMLButtonElement>('[data-tab]');
+      const button = target.closest('[data-tab]');
       if (!button) return;
 
       const tabId = button.getAttribute('data-tab');
@@ -78,6 +78,9 @@ export function App() {
       setTabActiva(tabId);
       actualizarNavegacionSecundaria(tabId);
       window.dispatchEvent(new Event('close-header-menus'));
+
+      // Cerrar menú móvil si está abierto
+      cerrarMenuMovil();
 
       const focusTargetId = button.getAttribute('data-focus');
       if (focusTargetId) document.getElementById(focusTargetId)?.focus();
@@ -97,9 +100,54 @@ export function App() {
     inicializarNotificaciones(databaseReady);
     inicializarPerfil(databaseReady);
 
+    // Manejar apertura/cierre del menú móvil
+    const mobileMenuButton = document.getElementById('mobile-menu-button');
+    const mobileNavDrawer = document.getElementById('mobile-nav-drawer');
+    const mobileNavOverlay = document.getElementById('mobile-nav-overlay');
+    const mobileNavClose = document.getElementById('mobile-nav-close');
+
+    // Función para cerrar el menú móvil (se declara antes de usarla en handleTabClick)
+    const cerrarMenuMovil = (): void => {
+      mobileNavDrawer?.setAttribute('aria-hidden', 'true');
+      mobileMenuButton?.setAttribute('aria-expanded', 'false');
+      mobileNavOverlay?.classList.remove('active');
+      document.body.classList.remove('mobile-menu-open');
+      mobileMenuButton?.focus();
+    };
+
+    // Inicializar estado del drawer
+    mobileNavDrawer?.setAttribute('aria-hidden', 'true');
+
+    const abrirMenuMovil = (): void => {
+      mobileNavDrawer?.setAttribute('aria-hidden', 'false');
+      mobileMenuButton?.setAttribute('aria-expanded', 'true');
+      mobileNavOverlay?.classList.add('active');
+      document.body.classList.add('mobile-menu-open');
+      // Enfocar el botón de cerrar para accesibilidad
+      mobileNavClose?.focus();
+    };
+
+    // Manejar Escape para cerrar el menú
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape' && document.body.classList.contains('mobile-menu-open')) {
+        cerrarMenuMovil();
+      }
+    };
+
+    if (mobileMenuButton && mobileNavDrawer && mobileNavOverlay) {
+      mobileMenuButton.addEventListener('click', abrirMenuMovil);
+      mobileNavClose?.addEventListener('click', cerrarMenuMovil);
+      mobileNavOverlay.addEventListener('click', cerrarMenuMovil);
+      document.addEventListener('keydown', handleKeyDown);
+    }
+
     return () => {
       window.removeEventListener('auth-changed', actualizarSesion);
       root?.removeEventListener('click', handleTabClick);
+      mobileMenuButton?.removeEventListener('click', abrirMenuMovil);
+      mobileNavClose?.removeEventListener('click', cerrarMenuMovil);
+      mobileNavOverlay?.removeEventListener('click', cerrarMenuMovil);
+      document.removeEventListener('keydown', handleKeyDown);
       limpiarNavegacion();
       limpiarSincronizacion();
     };
@@ -117,7 +165,7 @@ export function App() {
           <ModuloCalendario activo={tabActiva === 'tab-calendario'} databaseReady={databaseReady} />
           <ModuloProgreso activo={tabActiva === 'tab-progreso'} databaseReady={databaseReady} />
           <ModuloNotas activo={tabActiva === 'tab-notas'} databaseReady={databaseReady} />
-          <ModuloPomodoro activo={tabActiva === 'tab-pomodoro'} />
+          <ModuloPomodoro activo={tabActiva === 'tab-pomodoro'} databaseReady={databaseReady} />
           <ModuloDispositivo activo={tabActiva === 'tab-dispositivo'} />
         </main>
         <footer className="app-footer">

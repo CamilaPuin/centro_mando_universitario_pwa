@@ -31,6 +31,7 @@ export function inicializarSincronizacion(
   databaseReady: Promise<IDBDatabase | undefined>
 ): () => void {
   let remoteRefresh: Promise<void> | undefined;
+  let refreshQueued = false;
   let pendingSync: Promise<void> | undefined;
 
   async function requestForUser<T>(
@@ -88,10 +89,57 @@ export function inicializarSincronizacion(
         creadoEn: cached?.creadoEn ?? new Date().toISOString()
       }));
     }
+    window.dispatchEvent(new Event('asignaturas-actualizadas'));
     const subjectsByBackendId = new Map(subjectsFromApi.map(subject => [
       subject.id,
       localSubjects.find(local => local.backendId === subject.id)!
     ]));
+    const localSubjectByBackendId = new Map(localSubjects.map(subject => [subject.backendId, subject]));
+    await sincronizarPendientes(db);
+    const tasksFromApi = await requestForUser<RemoteTask[]>(username, '/tasks');
+    const cachedTasks = await listarEntregas(db);
+    const taskStore = db.transaction('entregas', 'readwrite').objectStore('entregas');
+    for (const task of tasksFromApi) {
+      const subject = localSubjectByBackendId.get(task.subjectId);
+      if (!subject) continue;
+      const cached = cachedTasks.find(item => item.backendId === task.id);
+      const category = task.taskType === 'EXAM' || task.taskType === 'EVALUATION' || task.taskType === 'TEST'
+        ? 'examen'
+        : task.taskType === 'PROJECT' ? 'proyecto' : task.taskType === 'TASK' || task.taskType === 'ASSIGNMENT'
+          ? 'tarea' : 'otro';
+      const status = task.currentStateName === 'DONE'
+        ? 'entregada'
+        : task.currentStateName === 'IN_PROGRESS' ? 'en-progreso' : 'pendiente';
+      const evaluation = subjectsFromApi
+        .find(item => item.id === task.subjectId)
+        ?.evaluations?.find(item => item.name === task.title);
+      const record: EntregaAcademica = {
+        ...(cached?.id === undefined ? {} : { id: cached.id }),
+        backendId: task.id,
+        asignaturaId: subject.id,
+        titulo: task.title,
+        asignatura: subject.nombre,
+        fechaEntrega: task.dueDate,
+        detalle: task.description ?? '',
+        estado: status,
+        categoria: category,
+        prioridad: task.priority.toLowerCase() as EntregaAcademica['prioridad'],
+        ...((evaluation?.id ?? cached?.evaluationBackendId) === undefined
+          ? {}
+          : { evaluationBackendId: evaluation?.id ?? cached?.evaluationBackendId }),
+        actualizadoEn: cached?.actualizadoEn ?? new Date().toISOString(),
+        ownerUsername: username
+      };
+      if (record.id === undefined) taskStore.add(record);
+      else taskStore.put(record);
+    }
+    await new Promise<void>((resolve, reject) => {
+      const transaction = taskStore.transaction;
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error('No se pudo guardar la copia de tareas.'));
+    });
+    window.dispatchEvent(new Event('entregas-actualizadas'));
 
     const cachedNotes = await listarApuntes(db);
     for (const note of cachedNotes.filter(item => item.backendId === undefined || item.syncPending)) {
@@ -168,9 +216,7 @@ export function inicializarSincronizacion(
       await guardarClaseHorario(db, { ...cached, backendId: remote.id, syncPending: false });
     }
     cachedSchedules = await listarClasesHorario(db);
-    await sincronizarPendientes(db);
-    const [tasksFromApi, remoteSessions, remoteGoal] = await Promise.all([
-      requestForUser<RemoteTask[]>(username, '/tasks'),
+    const [remoteSessions, remoteGoal] = await Promise.all([
       requestForUser<RemoteStudySession[]>(username, '/study/sessions'),
       requestForUser<{ targetWeeklyMinutes: number }>(username, '/statistics/goals')
     ]);
@@ -326,50 +372,6 @@ export function inicializarSincronizacion(
       });
     }
 
-    const localSubjectByBackendId = new Map(localSubjects.map(subject => [subject.backendId, subject]));
-    const cachedTasks = await listarEntregas(db);
-    const taskStore = db.transaction('entregas', 'readwrite').objectStore('entregas');
-    for (const task of tasksFromApi) {
-      const subject = localSubjectByBackendId.get(task.subjectId);
-      if (!subject) continue;
-      const cached = cachedTasks.find(item => item.backendId === task.id);
-      const category = task.taskType === 'EXAM' || task.taskType === 'EVALUATION' || task.taskType === 'TEST'
-        ? 'examen'
-        : task.taskType === 'PROJECT' ? 'proyecto' : task.taskType === 'TASK' || task.taskType === 'ASSIGNMENT'
-          ? 'tarea' : 'otro';
-      const status = task.currentStateName === 'DONE'
-        ? 'entregada'
-        : task.currentStateName === 'IN_PROGRESS' ? 'en-progreso' : 'pendiente';
-      const evaluation = subjectsFromApi
-        .find(item => item.id === task.subjectId)
-        ?.evaluations?.find(item => item.name === task.title);
-      const record: EntregaAcademica = {
-        ...(cached?.id === undefined ? {} : { id: cached.id }),
-        backendId: task.id,
-        asignaturaId: subject.id,
-        titulo: task.title,
-        asignatura: subject.nombre,
-        fechaEntrega: task.dueDate,
-        detalle: task.description ?? '',
-        estado: status,
-        categoria: category,
-        prioridad: task.priority.toLowerCase() as EntregaAcademica['prioridad'],
-        ...((evaluation?.id ?? cached?.evaluationBackendId) === undefined
-          ? {}
-          : { evaluationBackendId: evaluation?.id ?? cached?.evaluationBackendId }),
-        actualizadoEn: cached?.actualizadoEn ?? new Date().toISOString(),
-        ownerUsername: username
-      };
-      if (record.id === undefined) taskStore.add(record);
-      else taskStore.put(record);
-    }
-    await new Promise<void>((resolve, reject) => {
-      const transaction = taskStore.transaction;
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error ?? new Error('No se pudo guardar la copia de tareas.'));
-    });
-
     const cachedSessions = await listarSesionesEstudio(db);
     const sessionsStore = db.transaction('sesionesEstudio', 'readwrite').objectStore('sesionesEstudio');
     for (const session of sessionsFromApi) {
@@ -417,8 +419,16 @@ export function inicializarSincronizacion(
   }
 
   function cargarDatosRemotos(db: IDBDatabase): Promise<void> {
-    if (remoteRefresh) return remoteRefresh;
-    remoteRefresh = actualizarDatosRemotos(db).finally(() => {
+    if (remoteRefresh) {
+      refreshQueued = true;
+      return remoteRefresh;
+    }
+    remoteRefresh = (async () => {
+      do {
+        refreshQueued = false;
+        await actualizarDatosRemotos(db);
+      } while (refreshQueued && isAuthenticated() && navigator.onLine);
+    })().finally(() => {
       remoteRefresh = undefined;
     });
     return remoteRefresh;
