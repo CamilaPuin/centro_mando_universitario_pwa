@@ -11,6 +11,7 @@ import {
   obtenerMetas,
   guardarMetas,
   quitarCambioPendiente,
+  describirErrorConexionBaseDatos,
   type Asignatura,
   type ApunteMateria,
   type EntregaAcademica,
@@ -21,6 +22,8 @@ import {
   apiRequest,
   getCurrentUsername,
   isAuthenticated,
+  ApiConnectionError,
+  ApiResponseError,
   type ApiRequestOptions
 } from '../services/api';
 import {
@@ -57,6 +60,24 @@ export function inicializarSincronizacion(
   let remoteRefresh: Promise<void> | undefined;
   let refreshQueued = false;
   let pendingSync: Promise<void> | undefined;
+  let retryTimer: number | undefined;
+  let retryDelayMs = 5000;
+
+  const isTransientSyncError = (error: unknown): boolean =>
+    error instanceof ApiConnectionError ||
+    (error instanceof ApiResponseError &&
+      (error.status === 408 || error.status === 425 || error.status === 429 || error.status >= 500)) ||
+    describirErrorConexionBaseDatos(error) !== undefined;
+
+  const scheduleRetry = (): void => {
+    if (retryTimer !== undefined || !isAuthenticated() || !navigator.onLine) return;
+    const delay = retryDelayMs;
+    retryDelayMs = Math.min(retryDelayMs * 2, 120_000);
+    retryTimer = window.setTimeout(() => {
+      retryTimer = undefined;
+      void vaciarBandejaEnLinea();
+    }, delay);
+  };
 
   async function requestForUser<T>(
     username: string,
@@ -574,16 +595,27 @@ export function inicializarSincronizacion(
   }
 
   async function vaciarBandejaEnLinea(): Promise<void> {
+    if (retryTimer !== undefined) {
+      window.clearTimeout(retryTimer);
+      retryTimer = undefined;
+    }
     if (!isAuthenticated() || !navigator.onLine) return;
     try {
       const db = await databaseReady;
       if (!db) return;
       await cargarDatosRemotos(db);
+      retryDelayMs = 5000;
     } catch (error) {
       console.error('Error al sincronizar los cambios pendientes:', error);
-      publicarEstadoSincronizacion(error instanceof Error
-        ? `No se pudo completar la sincronización. Se volverá a intentar automáticamente: ${describirErrorParaUsuario(error, 'Revisa tu conexión e inténtalo de nuevo.')}`
-        : 'No se pudo completar la sincronización. Se volverá a intentar automáticamente.');
+      const detalle = describirErrorParaUsuario(error, 'Inténtalo de nuevo más tarde.');
+      if (isTransientSyncError(error)) {
+        scheduleRetry();
+        publicarEstadoSincronizacion(
+          `No se pudo sincronizar en este momento. Lo intentaremos automáticamente. ${detalle}`
+        );
+      } else {
+        publicarEstadoSincronizacion(`No se pudieron sincronizar tus cambios. ${detalle}`);
+      }
     }
   }
 
@@ -591,6 +623,12 @@ export function inicializarSincronizacion(
     void vaciarBandejaEnLinea();
   };
   const sincronizarAlCambiarAutenticacion = (): void => {
+    if (!isAuthenticated()) {
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer);
+      retryTimer = undefined;
+      retryDelayMs = 5000;
+      return;
+    }
     void databaseReady.then(db => {
       if (db && isAuthenticated() && navigator.onLine) void vaciarBandejaEnLinea();
     });
@@ -612,7 +650,7 @@ export function inicializarSincronizacion(
           : 'Inicia sesión para sincronizar tus cambios entre dispositivos.');
       }
       if (isAuthenticated()) {
-        await cargarDatosRemotos(db);
+        await vaciarBandejaEnLinea();
       }
     } catch (error) {
       console.error('No se pudieron cargar las entregas locales:', error);
@@ -624,6 +662,7 @@ export function inicializarSincronizacion(
     window.removeEventListener('online', sincronizarAlConectarse);
     window.removeEventListener('auth-changed', sincronizarAlCambiarAutenticacion);
     window.removeEventListener(EVENTO_SOLICITAR_SINCRONIZACION, sincronizarPorSolicitud);
+    if (retryTimer !== undefined) window.clearTimeout(retryTimer);
   };
 }
 

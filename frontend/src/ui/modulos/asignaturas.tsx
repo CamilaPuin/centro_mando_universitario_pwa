@@ -321,7 +321,7 @@ export function ModuloAsignaturas({
                 id="class-location"
                 className="form-control"
                 maxLength={120}
-                placeholder="Ej. Bloque 3, aula 204"
+                placeholder="Ej. RA303"
                 value={aula}
                 onChange={event => setAula(event.currentTarget.value)}
               />
