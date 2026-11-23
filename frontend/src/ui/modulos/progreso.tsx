@@ -29,7 +29,7 @@ export function ModuloProgreso({
           setDatos(resultado);
           setMinutosMeta(String(resultado.minutosMeta));
           const errores = [resultado.errorSemanal, resultado.errorLogros].filter(Boolean);
-          if (errores.length) setEstado(errores.join(' '));
+          if (errores.length) setEstado([...new Set(errores)].join(' '));
         }
       } catch (causa) {
         console.error('No se pudo calcular el progreso semanal:', causa);

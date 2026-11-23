@@ -185,11 +185,11 @@ export async function obtenerDatosProgreso(
         elemento('Sugerencia', report.recommendation)
       ];
       if (resultado.desdeCache) {
-        errorSemanal = 'No se pudo conectar con el servidor. Se muestra el último resumen semanal guardado.';
+        errorSemanal = 'Sin conexión. Se muestran los últimos datos guardados.';
       }
     } catch (error) {
       console.error('No se pudo cargar el resumen semanal del servidor:', error);
-      errorSemanal = `No se pudo actualizar el resumen semanal: ${describirErrorParaUsuario(error, 'Inténtalo de nuevo.')}`;
+      errorSemanal = 'No se pudo actualizar parte del progreso.';
     }
   }
 
@@ -238,11 +238,11 @@ export async function obtenerDatosProgreso(
         )
       ];
       if (resultado.desdeCache) {
-        errorLogros = 'No se pudo conectar con el servidor. Se muestran los últimos logros guardados.';
+        errorLogros = 'Sin conexión. Se muestran los últimos datos guardados.';
       }
     } catch (error) {
       console.error('No se pudo cargar el perfil de gamificación del servidor:', error);
-      errorLogros = `No se pudo actualizar el resumen de logros: ${describirErrorParaUsuario(error, 'Inténtalo de nuevo.')}`;
+      errorLogros = 'No se pudo actualizar parte del progreso.';
     }
   }
 
