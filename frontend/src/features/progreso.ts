@@ -4,7 +4,13 @@ import {
   obtenerMetas,
   describirErrorParaUsuario
 } from '../utils/db';
-import { apiRequest, isAuthenticated } from '../services/api';
+import {
+  ApiConnectionError,
+  ApiResponseError,
+  apiRequest,
+  getCurrentUsername,
+  isAuthenticated
+} from '../services/api';
 
 interface ElementoResumen {
   etiqueta: string;
@@ -28,6 +34,11 @@ interface GamificationProfile {
   badges: Array<{ name: string; status: string }>;
 }
 
+interface ResultadoConCache<T> {
+  datos: T;
+  desdeCache: boolean;
+}
+
 export interface DatosProgreso {
   minutosMeta: number;
   minutosEstudiados: number;
@@ -47,6 +58,82 @@ function mondayOf(date: Date): Date {
 
 function elemento(etiqueta: string, valor: string): ElementoResumen {
   return { etiqueta, valor };
+}
+
+function esResumenSemanal(value: unknown): value is WeeklySummaryReport {
+  if (!value || typeof value !== 'object') return false;
+  const report = value as Record<string, unknown>;
+  return typeof report.weekRange === 'string' &&
+    typeof report.totalMinutesStudied === 'number' &&
+    Number.isFinite(report.totalMinutesStudied) &&
+    typeof report.tasksCompletedThisWeek === 'number' &&
+    Number.isFinite(report.tasksCompletedThisWeek) &&
+    typeof report.mostStudiedSubject === 'string' &&
+    typeof report.selfEvaluationFeedback === 'string' &&
+    typeof report.recommendation === 'string';
+}
+
+function esPerfilGamificacion(value: unknown): value is GamificationProfile {
+  if (!value || typeof value !== 'object') return false;
+  const profile = value as Record<string, unknown>;
+  return typeof profile.level === 'number' &&
+    Number.isFinite(profile.level) &&
+    typeof profile.currentLevelXp === 'number' &&
+    Number.isFinite(profile.currentLevelXp) &&
+    typeof profile.xpForNextLevel === 'number' &&
+    Number.isFinite(profile.xpForNextLevel) &&
+    typeof profile.currentStreakDays === 'number' &&
+    Number.isFinite(profile.currentStreakDays) &&
+    Array.isArray(profile.badges) &&
+    profile.badges.every(badge =>
+      badge !== null &&
+      typeof badge === 'object' &&
+      typeof badge.name === 'string' &&
+      typeof badge.status === 'string'
+    );
+}
+
+function leerCache<T>(clave: string, validar: (value: unknown) => value is T): T | undefined {
+  try {
+    const guardado = localStorage.getItem(clave);
+    if (!guardado) return undefined;
+    const datos: unknown = JSON.parse(guardado);
+    if (validar(datos)) return datos;
+    console.error(`El contenido de la caché de progreso "${clave}" no tiene un formato válido.`);
+  } catch (error) {
+    console.error(`No se pudo leer la caché de progreso "${clave}":`, error);
+  }
+  return undefined;
+}
+
+function guardarCache<T>(clave: string, datos: T): void {
+  try {
+    localStorage.setItem(clave, JSON.stringify(datos));
+  } catch (error) {
+    console.error(`No se pudo guardar la caché de progreso "${clave}":`, error);
+  }
+}
+
+async function obtenerConCache<T>(
+  path: string,
+  recurso: string,
+  validar: (value: unknown) => value is T
+): Promise<ResultadoConCache<T>> {
+  const username = getCurrentUsername();
+  if (!username) throw new Error('No se encontró la cuenta para consultar el progreso.');
+
+  const clave = `centro-mando-progreso:${encodeURIComponent(username)}:${recurso}`;
+  try {
+    const datos = await apiRequest<T>(path);
+    guardarCache(clave, datos);
+    return { datos, desdeCache: false };
+  } catch (error) {
+    const puedeUsarCache = error instanceof ApiConnectionError ||
+      (error instanceof ApiResponseError && error.status >= 500);
+    const datosGuardados = puedeUsarCache ? leerCache(clave, validar) : undefined;
+    if (datosGuardados) return { datos: datosGuardados, desdeCache: true };
+    throw error;
+  }
 }
 
 export async function obtenerDatosProgreso(
@@ -81,9 +168,14 @@ export async function obtenerDatosProgreso(
   ];
   let errorSemanal: string | undefined;
 
-  if (isAuthenticated() && navigator.onLine) {
+  if (isAuthenticated()) {
     try {
-      const report = await apiRequest<WeeklySummaryReport>('/statistics/weekly');
+      const resultado = await obtenerConCache(
+        '/statistics/weekly',
+        'resumen-semanal',
+        esResumenSemanal
+      );
+      const report = resultado.datos;
       resumenSemanal = [
         elemento('Semana', report.weekRange),
         elemento('Tiempo de estudio', `${Math.floor(report.totalMinutesStudied / 60)} h ${report.totalMinutesStudied % 60} min`),
@@ -92,6 +184,9 @@ export async function obtenerDatosProgreso(
         elemento('Autoevaluación', report.selfEvaluationFeedback),
         elemento('Sugerencia', report.recommendation)
       ];
+      if (resultado.desdeCache) {
+        errorSemanal = 'No se pudo conectar con el servidor. Se muestra el último resumen semanal guardado.';
+      }
     } catch (error) {
       console.error('No se pudo cargar el resumen semanal del servidor:', error);
       errorSemanal = `No se pudo actualizar el resumen semanal: ${describirErrorParaUsuario(error, 'Inténtalo de nuevo.')}`;
@@ -123,9 +218,14 @@ export async function obtenerDatosProgreso(
   ];
   let errorLogros: string | undefined;
 
-  if (isAuthenticated() && navigator.onLine) {
+  if (isAuthenticated()) {
     try {
-      const profile = await apiRequest<GamificationProfile>('/gamification/profile');
+      const resultado = await obtenerConCache(
+        '/gamification/profile',
+        'perfil-gamificacion',
+        esPerfilGamificacion
+      );
+      const profile = resultado.datos;
       const badges = profile.badges
         .filter(badge => badge.status === 'UNLOCKED')
         .map(badge => badge.name);
@@ -137,9 +237,12 @@ export async function obtenerDatosProgreso(
           badges.length ? badges.join(' · ') : 'Sigue registrando actividad para desbloquear insignias.'
         )
       ];
+      if (resultado.desdeCache) {
+        errorLogros = 'No se pudo conectar con el servidor. Se muestran los últimos logros guardados.';
+      }
     } catch (error) {
       console.error('No se pudo cargar el perfil de gamificación del servidor:', error);
-      errorLogros = 'No se pudo actualizar el resumen de logros.';
+      errorLogros = `No se pudo actualizar el resumen de logros: ${describirErrorParaUsuario(error, 'Inténtalo de nuevo.')}`;
     }
   }
 
